@@ -9,6 +9,9 @@ const base = process.env.VITE_BASE_PATH ?? '/';
 export default defineConfig({
   base,
   plugins: [svelte()],
+  server: process.env.PORT
+    ? { port: Number(process.env.PORT), strictPort: true }
+    : undefined,
   worker: {
     format: 'es',
   },

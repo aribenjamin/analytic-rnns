@@ -152,32 +152,106 @@
         <h2>Transfer functions, gently</h2>
 
         <p>
-          The compact summary of the entire input–output map of our recurrent
-          network is the <em>transfer function</em>,
+          When we ask "what has the network learned?" we really mean: what
+          map does it implement from the input stream $\{x_t\}$ to the
+          output stream $\{y_t\}$? The particular triple $(W, b, c)$ is one
+          parameterisation among many — any change of basis on the hidden
+          state yields a different triple that implements the same I/O
+          behaviour. We want a description of <em>that</em> map, not of one
+          arbitrary realisation of it.
+        </p>
+
+        <p>
+          Unroll the recurrence with $h_0 = 0$ and the map appears
+          directly: every output is a weighted sum of past inputs,
         </p>
 
         <div class="math-block">
-          $$H(z) \;=\; c^\top (zI - W)^{-1} b.$$
+          $$y_t \;=\; \sum_{s} g_s\, x_{t-s}, \qquad g_s \;=\; c^\top W^s b,$$
         </div>
 
         <p>
-          $H(z)$ is a rational function of a complex variable $z$.<sup class="cite"><a href="#ref-kailath1980">5</a></sup>
-          Its <strong>poles</strong> are the eigenvalues of $W$ — the locations
-          in $\mathbb{C}$ where the system rings. But the numerator
-          polynomial contributes its own roots, the <strong>zeros</strong>,
-          and those zeros are what's missing from a pure eigenvalue
-          description. Drag a pole or a zero in the playground below and
-          watch the frequency response and impulse response update live.
+          where the sequence $\{g_s\}_{s \ge 0}$ is the <em>impulse
+          response</em> — the output the network produces from a unit kick
+          at $t=0$. This convolution <em>is</em> the I/O function: hand it
+          any input, the formula returns the output. Two parameter triples
+          that produce the same $\{g_s\}$ are the same network in different
+          clothes.
+        </p>
+
+        <p>
+          The impulse response has hidden structure. Diagonalising $W$ with
+          eigenvalues $\{p_k\}_{k=1}^n$ collapses the matrix powers into
+          scalar powers,
+        </p>
+
+        <div class="math-block">
+          $$g_s \;=\; \sum_{k=1}^{n} r_k\, p_k^{\,s},$$
+        </div>
+
+        <p>
+          one term per <em>mode</em> of $W$. Each mode rings as a pure
+          exponential of decay rate $|p_k|$ and angular frequency
+          $\arg(p_k)$, weighted by the <strong>residue</strong> $r_k$. What
+          determines $r_k$ is the next section's question; the punchline
+          here is that the a-priori infinite sequence $\{g_s\}$ is
+          completely determined by just $n$ pole–residue pairs in
+          $\mathbb{C}$.
+        </p>
+
+        <p>
+          Packaging $\{g_s\}$ into a generating function (the
+          $z$-transform) gives the
+          <strong>transfer function</strong>,<sup class="cite"><a href="#ref-kailath1980">5</a></sup>
+        </p>
+
+        <div class="math-block">
+          $$H(z) \;=\; \sum_{k=1}^{n} \frac{r_k}{z - p_k}
+                    \;=\; c^\top (zI - W)^{-1} b.$$
+        </div>
+
+        <p>
+          Both forms matter. The right-hand expression makes the dependence
+          on the parameters $(W, b, c)$ explicit. The partial-fraction sum
+          makes the modal structure explicit: $H(z)$ is a rational function
+          of $z$ whose <strong>poles</strong> are the eigenvalues of $W$,
+          and whose numerator polynomial
+          $c^\top \mathrm{adj}(zI - W)\, b$ contributes its own roots — the
+          <strong>zeros</strong>, at most $n-1$ of them. Poles and zeros
+          together fix $H(z)$ up to overall scale.
+        </p>
+
+        <p>
+          Two readings of $H(z)$ are worth holding onto. On the unit
+          circle, $z = e^{i\theta}$, the magnitude $|H(e^{i\theta})|$ is
+          the network's steady-state gain at temporal frequency $\theta$ —
+          drive it with a cosine at frequency $\theta$ and the output is a
+          cosine at the same frequency, scaled by $|H(e^{i\theta})|$. Poles
+          near the unit circle make peaks; zeros near it carve notches.
+          Off the unit circle, the broader picture: a finite list of
+          marked points in $\mathbb{C}$ — at most $n$ poles and $n-1$
+          zeros — is a complete, basis-free summary of what the network
+          does to <em>any</em> input, ever.
+          <strong>This is the answer to "what has the network learned":
+          a configuration of points in the complex plane.</strong>
+        </p>
+
+        <p>
+          Drag a pole or a zero in the playground below; the frequency
+          response and impulse response update live. Poles come in
+          complex-conjugate pairs because $W$ is real, and the widget
+          enforces this by mirroring across the real axis.
         </p>
 
         <div id="widget-transfer-function-playground" class="widget-slot widget-l-page"></div>
 
         <p class="aside-note">
-          The unit circle in this z-plane plays the role that the imaginary
-          axis plays in continuous-time signal processing. A pole near the
-          unit circle is a slowly-decaying resonance; a pole at the origin
-          is a "memoryless" mode. Where the unit circle passes near a pole,
-          the system rings loudly at that frequency.
+          The unit circle in this $z$-plane plays the role that the
+          imaginary axis plays in continuous-time signal processing. A
+          pole inside the unit circle is a stable mode; on the circle it
+          is undamped; outside, unstable. A pole near the origin is
+          "memoryless" (it decays in a single step); a pole near the unit
+          circle decays slowly and rings.
         </p>
       </section>
 
