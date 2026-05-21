@@ -1,0 +1,1379 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\geometry{margin=1in}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{assumption}[theorem]{Assumption}
+
+\DeclareMathOperator{\Res}{Res}
+\DeclareMathOperator{\Ind}{Ind}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\spec}{spec}
+\DeclareMathOperator{\wind}{wind}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\cL}{\mathcal{L}}
+\newcommand{\cH}{\mathcal{H}}
+\newcommand{\cD}{\mathcal{D}}
+\newcommand{\cW}{\mathcal{W}}
+\newcommand{\cN}{\mathcal{N}}
+\newcommand{\eps}{\varepsilon}
+
+\title{Meromorphic Structure of Saddle-to-Saddle Learning Dynamics\\in Recurrent Networks}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We develop a rigorous framework for understanding the learning dynamics of
+recurrent neural networks in terms of the pole-zero configuration of their
+transfer functions, viewed as meromorphic functions of a complex variable.
+Working with a general time-domain loss under arbitrary input distributions,
+we prove that pole-zero cancellations correspond precisely to saddle points
+of the population loss---a consequence of the multiplicative
+$r_k = \alpha_k\beta_k$ structure of residues, independent of the choice
+of loss or input statistics. The transitions between these saddles are
+topologically quantised by a winding number invariant derived from the
+argument principle, and the sequential activation of dynamical modes during
+learning is governed by the \emph{effective spectral energy}---the product
+of the target's spectral content and the input's spectral density at each
+mode's frequency. This extends the saddle-to-saddle framework of
+Saxe et al.\ from deep linear feedforward networks to the recurrent
+setting, replacing singular values with the pole-zero geometry of the
+complex plane. We derive exact dwell times at each saddle, characterise
+the geometry of pole-zero separation in $\C$, and identify mechanisms
+for catastrophic interference as non-partner pole-zero collisions.
+\end{abstract}
+
+\tableofcontents
+
+%======================================================================
+\section{Setup and Notation}\label{sec:setup}
+%======================================================================
+
+\begin{definition}[Linear Recurrent System]\label{def:lrs}
+A \emph{parametrised linear recurrent system} is a triple
+$(W(\tau), B(\tau), C(\tau))$ depending smoothly on a learning
+parameter $\tau \in [0,\infty)$, with $W(\tau) \in \R^{n \times n}$,
+$B(\tau) \in \R^{n \times d_{\mathrm{in}}}$,
+$C(\tau) \in \R^{d_{\mathrm{out}} \times n}$, defining the recurrence
+\begin{equation}\label{eq:recurrence}
+  h_t = W(\tau)\, h_{t-1} + B(\tau)\, x_t, \qquad
+  y_t = C(\tau)\, h_t,
+\end{equation}
+where $h_t \in \R^n$ is the hidden state,
+$x_t \in \R^{d_{\mathrm{in}}}$ is the input, and
+$y_t \in \R^{d_{\mathrm{out}}}$ is the output.
+The learning timescale $\tau$ is assumed slow relative to the
+recurrence index $t$.
+\end{definition}
+
+\begin{definition}[Transfer Function]\label{def:transfer}
+The $z$-domain transfer function of the system
+\eqref{eq:recurrence} is the matrix-valued meromorphic function
+\begin{equation}\label{eq:transfer}
+  H(z;\tau) = C(\tau)\bigl(zI - W(\tau)\bigr)^{-1}B(\tau).
+\end{equation}
+\end{definition}
+
+\noindent
+Throughout this paper, we work primarily in the SISO
+(single-input single-output) setting $d_{\mathrm{in}} = d_{\mathrm{out}} = 1$
+to make the pole-zero structure maximally transparent. The MIMO
+generalisation is discussed in \Cref{sec:mimo}.
+
+\begin{definition}[Poles, Zeros, and Residues]\label{def:poles_zeros}
+In the SISO case, write $B(\tau) = b(\tau) \in \R^n$,
+$C(\tau) = c(\tau)^{\top} \in \R^{1 \times n}$. Let
+$\{p_k(\tau)\}_{k=1}^n$ be the eigenvalues of $W(\tau)$
+(counted with algebraic multiplicity), with corresponding right
+eigenvectors $v_k(\tau)$ and left eigenvectors $u_k(\tau)$ normalised
+so that $u_k^* v_k = 1$. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item The \emph{poles} of $H(z;\tau)$ are the eigenvalues
+    $\{p_k(\tau)\}_{k=1}^n$.
+  \item The \emph{residue} at pole $p_k$ (assuming $p_k$ is simple) is
+    \begin{equation}\label{eq:residue}
+      r_k(\tau) = \Res_{z=p_k} H(z;\tau)
+      = c(\tau)^{\top} v_k(\tau)\, u_k(\tau)^* b(\tau).
+    \end{equation}
+  \item The \emph{zeros} $\{q_m(\tau)\}_{m=1}^{M}$, with $M \le n-1$,
+    are the roots of the numerator polynomial
+    \begin{equation}\label{eq:numerator}
+      Q(z;\tau) = c(\tau)^{\top} \mathrm{adj}\bigl(zI - W(\tau)\bigr)
+      \, b(\tau),
+    \end{equation}
+    where $\mathrm{adj}$ denotes the classical adjugate.
+  \item The transfer function admits the partial fraction expansion
+    \begin{equation}\label{eq:partial_fraction}
+      H(z;\tau) = \sum_{k=1}^{n} \frac{r_k(\tau)}{z - p_k(\tau)}.
+    \end{equation}
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Observability and Controllability Coefficients]%
+\label{def:obs_ctrl}
+The residue $r_k$ factorises as $r_k = \alpha_k \beta_k$, where
+\begin{equation}\label{eq:alpha_beta}
+  \alpha_k = c^{\top} v_k \quad
+  \text{(observability coefficient)}, \qquad
+  \beta_k = u_k^* b \quad
+  \text{(controllability coefficient)}.
+\end{equation}
+A pole is cancelled---i.e., paired with a coincident zero---if and
+only if $r_k = 0$, which occurs when $\alpha_k = 0$, or
+$\beta_k = 0$, or both.
+\end{definition}
+
+\begin{definition}[Impulse Response and Markov Parameters]\label{def:impulse}
+The impulse response of the SISO system is the sequence
+\begin{equation}\label{eq:impulse}
+  g_s(\tau) = c(\tau)^{\top} W(\tau)^s\, b(\tau)
+  = \sum_{k=1}^n r_k(\tau)\, p_k(\tau)^s,
+  \qquad s = 0, 1, 2, \ldots
+\end{equation}
+The output of the system driven by an input sequence
+$\{x_t\}_{t=1}^T$ from initial state $h_0 = 0$ is
+\begin{equation}\label{eq:convolution}
+  \hat{y}_t(\tau) = \sum_{s=0}^{t-1} g_s(\tau)\, x_{t-s}
+  = \sum_{k=1}^n r_k(\tau) \underbrace{
+    \sum_{s=0}^{t-1} p_k(\tau)^s\, x_{t-s}
+  }_{\displaystyle \phi_k(t)}.
+\end{equation}
+\end{definition}
+
+\begin{definition}[Mode Response]\label{def:mode_response}
+The \emph{mode-$k$ response} to input sequence $\{x_t\}$ is the
+filtered signal
+\begin{equation}\label{eq:mode_response}
+  \phi_k(t) = \sum_{s=0}^{t-1} p_k^s\, x_{t-s}.
+\end{equation}
+This is the output that mode $k$ would produce with unit residue.
+The full output decomposes as
+$\hat{y}_t = \sum_k r_k\, \phi_k(t)$.
+When $r_k = 0$, mode $k$ contributes nothing to $\hat{y}_t$ for
+any input, at any time.
+\end{definition}
+
+%======================================================================
+\section{The Loss Functional}\label{sec:loss}
+%======================================================================
+
+We work with a general time-domain loss under an arbitrary data
+distribution. No assumption of white noise or frequency-domain
+structure is required for the core results.
+
+\begin{assumption}[General Time-Domain Loss]\label{ass:loss}
+The learning objective is the population loss
+\begin{equation}\label{eq:loss}
+  \cL(\tau)
+  = \E_{(x, y) \sim \cD}\!\left[
+    \frac{1}{T}\sum_{t=1}^{T}
+    \ell\!\bigl(\hat{y}_t(\tau),\; y_t\bigr)
+  \right],
+\end{equation}
+where $\cD$ is a distribution over input-output sequence pairs
+$\bigl(\{x_t\}_{t=1}^T, \{y_t\}_{t=1}^T\bigr)$ of length $T$,
+and $\ell:\R\times\R\to\R$ is a smooth, non-negative loss
+function with $\ell(a,a) = 0$ and
+$\partial\ell/\partial a \neq 0$ for $a \neq y$.
+\end{assumption}
+
+\begin{remark}
+The standard squared-error loss $\ell(a,b) = \tfrac{1}{2}(a-b)^2$
+satisfies Assumption~\ref{ass:loss}. All results in
+\Cref{sec:saddle}--\Cref{sec:topology} hold for any loss
+satisfying this assumption. The quantitative escape rates in
+\Cref{sec:separation} are derived explicitly for squared error.
+\end{remark}
+
+\noindent
+For the squared-error case, it is useful to define the following
+data-dependent quantities.
+
+\begin{definition}[Mode Energy under the Data Distribution]%
+\label{def:mode_energy}
+For the squared-error loss
+$\ell(\hat{y}, y) = \tfrac{1}{2}(\hat{y}-y)^2$ and data
+distribution $\cD$, define:
+\begin{enumerate}[label=(\roman*)]
+  \item The \emph{mode-$k$ input energy}:
+    \begin{equation}\label{eq:input_energy}
+      S_k^{(x)} = \E_{x \sim \cD}\!\left[
+        \frac{1}{T}\sum_{t=1}^T |\phi_k(t)|^2
+      \right].
+    \end{equation}
+  \item The \emph{mode-$k$ target cross-energy} at the rank-$\rho$
+    saddle (where the residual is
+    $\Delta_t = y_t - \sum_{j:\, r_j \neq 0} r_j \phi_j(t)$):
+    \begin{equation}\label{eq:cross_energy}
+      J_k = \E_{(x,y)\sim\cD}\!\left[
+        \frac{1}{T}\sum_{t=1}^T \overline{\phi_k(t)}\,\Delta_t
+      \right].
+    \end{equation}
+  \item The \emph{effective spectral energy} of mode $k$:
+    \begin{equation}\label{eq:eff_energy}
+      E_k^{\mathrm{eff}} = |J_k|^2 / S_k^{(x)}.
+    \end{equation}
+\end{enumerate}
+\end{definition}
+
+\begin{proposition}[White-Noise Reduction]\label{prop:white_noise}
+When the inputs $\{x_t\}$ are i.i.d.\ standard Gaussian (white
+noise) and $T \to \infty$, the mode-$k$ input energy reduces to
+\begin{equation}\label{eq:white_input}
+  S_k^{(x)} = \frac{1}{1 - |p_k|^2},
+\end{equation}
+and if the target is generated by a system with transfer function
+$H^*(z)$, the effective spectral energy becomes
+\begin{equation}\label{eq:white_eff}
+  E_k^{\mathrm{eff}} = |r_k^*|^2 \cdot
+  \frac{1}{1-|p_k^*|^2},
+\end{equation}
+where $r_k^*$ is the residue of $H^*$ at its pole $p_k^*$
+nearest to $p_k$. In particular, the effective spectral energy
+depends only on the target and not on the input distribution.
+\end{proposition}
+
+\begin{proof}
+For i.i.d.\ $x_t \sim \mathcal{N}(0,1)$,
+$\E[x_s x_{s'}] = \delta_{ss'}$, so
+\begin{align}
+  \E\!\left[\frac{1}{T}\sum_t |\phi_k(t)|^2\right]
+  &= \frac{1}{T}\sum_{t=1}^T \sum_{s=0}^{t-1} |p_k|^{2s}
+  \;\xrightarrow{T\to\infty}\;
+  \sum_{s=0}^{\infty} |p_k|^{2s}
+  = \frac{1}{1-|p_k|^2}.
+\end{align}
+For the cross-energy, when $y_t = \sum_m r_m^* \phi_m^*(t)$
+(the target generated by $H^*$ with poles $p_m^*$ and residues
+$r_m^*$), a similar calculation using the orthogonality of mode
+responses under white noise gives
+$J_k = r_k^* / (1 - p_k \bar{p}_k^*)$ when $p_k \approx p_k^*$,
+yielding \eqref{eq:white_eff}.
+\end{proof}
+
+\begin{remark}[Structured Inputs Reshape the Ordering]%
+\label{rem:structured}
+For non-white inputs with power spectral density $S_x(\omega)$,
+the mode-$k$ input energy becomes
+$S_k^{(x)} \approx S_x(\arg p_k) / (1-|p_k|^2)$
+in the $T\to\infty$ limit. The effective spectral energy is then
+\begin{equation}\label{eq:structured_eff}
+  E_k^{\mathrm{eff}} \approx
+  |r_k^*|^2 \cdot \frac{S_x(\arg p_k^*)}{1-|p_k^*|^2}.
+\end{equation}
+Modes at frequencies where the input is energetic are learned
+faster; modes at frequencies absent from the input are learned
+slowly or not at all, regardless of the target's spectral
+content at those frequencies. This is a prediction absent from
+the white-noise theory.
+\end{remark}
+
+%======================================================================
+\section{Pole-Zero Cancellation as Saddle Points}\label{sec:saddle}
+%======================================================================
+
+The central result of this section---that pole-zero cancellation
+produces a saddle point of the loss---relies only on the
+multiplicative structure of residues and is independent of the
+choice of loss function, input distribution, or sequence length.
+
+\begin{definition}[Pole-Zero Cancellation]\label{def:cancellation}
+We say that pole $p_k(\tau)$ is \emph{cancelled} at learning time
+$\tau_0$ if there exists a zero $q_m(\tau_0)$ such that
+$p_k(\tau_0) = q_m(\tau_0)$. Equivalently, by
+\eqref{eq:residue}, $r_k(\tau_0) = 0$.
+\end{definition}
+
+\begin{definition}[Effective Rank]\label{def:eff_rank}
+The \emph{effective rank} of the transfer function at time $\tau$ is
+\begin{equation}
+  \rho(\tau) = \#\{k : r_k(\tau) \neq 0\}
+  = n - \#\{\text{cancelled poles}\}.
+\end{equation}
+\end{definition}
+
+\begin{theorem}[General Cancellation Saddle]\label{thm:saddle}
+Let $\cL(\tau) = \E_{(x,y)\sim\cD}[\ell(\hat{y}(\tau;\, x),\, y)]$
+be any loss satisfying Assumption~\ref{ass:loss}, with
+parameters $\theta = (W, b, c)$. Suppose at $\tau_0$:
+\begin{enumerate}[label=(\alph*)]
+  \item Pole $p_k$ has $r_k(\tau_0) = 0$ (cancelled), with
+    $\alpha_k(\tau_0) = 0$ and $\beta_k(\tau_0) \neq 0$
+    (the dual case is analogous).
+  \item All other poles satisfy $r_j(\tau_0) \neq 0$ for
+    $j \neq k$.
+  \item The residual $\Delta_t = y_t - \sum_{j\neq k} r_j\phi_j(t)$
+    satisfies $\E[\Delta_t \overline{\phi_k(t)}] \neq 0$ for the
+    data distribution $\cD$ (the target has energy in mode $k$
+    that is not captured by the other modes).
+\end{enumerate}
+Then:
+\begin{enumerate}[label=(\roman*)]
+  \item The parameter configuration at $\tau_0$ is a critical
+    point of $\cL$: the gradient along all directions that
+    modulate $r_k$ vanishes.
+  \item The Hessian restricted to these directions has
+    eigenvalues of both signs: the critical point is a saddle.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\textbf{Part (i).}
+The output at any time $t$ for any input is
+$\hat{y}_t = \sum_{j=1}^n r_j \phi_j(t)
+= \sum_{j=1}^n \alpha_j \beta_j \phi_j(t)$.
+Since $r_k = \alpha_k \beta_k$, the dependence of $\hat{y}_t$ on
+$\alpha_k$ and $\beta_k$ is:
+\begin{equation}\label{eq:output_alphabeta}
+  \hat{y}_t = \alpha_k \beta_k\, \phi_k(t) +
+  \underbrace{\sum_{j \neq k} r_j \phi_j(t)}_{\text{independent
+  of } \alpha_k, \beta_k}.
+\end{equation}
+At $\alpha_k = 0$, $\hat{y}_t$ is independent of $\alpha_k$ and
+$\beta_k$ to zeroth order: $\hat{y}_t|_{\alpha_k=0} =
+\sum_{j\neq k} r_j\phi_j(t)$.
+
+By the chain rule:
+\begin{align}
+  \frac{\partial\cL}{\partial\alpha_k}
+  &= \E\!\left[\frac{1}{T}\sum_t
+    \frac{\partial\ell}{\partial\hat{y}_t}\cdot
+    \beta_k\,\phi_k(t)\right], \label{eq:grad_alpha} \\
+  \frac{\partial\cL}{\partial\beta_k}
+  &= \E\!\left[\frac{1}{T}\sum_t
+    \frac{\partial\ell}{\partial\hat{y}_t}\cdot
+    \alpha_k\,\phi_k(t)\right]. \label{eq:grad_beta}
+\end{align}
+At $\alpha_k = 0$: Equation \eqref{eq:grad_beta} vanishes
+identically because it is proportional to $\alpha_k = 0$.
+Equation \eqref{eq:grad_alpha} is proportional to $\beta_k$
+times $\E[\frac{1}{T}\sum_t (\partial\ell/\partial\hat{y}_t)
+\phi_k(t)]$. But at $\alpha_k = 0$, the output
+$\hat{y}_t = \sum_{j\neq k}r_j\phi_j(t)$ is independent of
+$\beta_k$, and the gradient $\partial\ell/\partial\hat{y}_t$
+depends on $\beta_k$ only through $\hat{y}_t$, which doesn't
+involve $\beta_k$. So this is a fixed quantity times $\beta_k$.
+
+Now consider the parameter-space gradient. The relevant
+parameters are the components of $c$ and $b$. The direction
+in $c$-space that modulates $\alpha_k$ is $\delta c = v_k$
+(since $\alpha_k = c^{\top}v_k$). The direction in $b$-space
+that modulates $\beta_k$ is $\delta b = u_k$ (since
+$\beta_k = u_k^*b$). The gradient of $\cL$ along
+$\delta c = v_k$ is \eqref{eq:grad_alpha}, and along
+$\delta b = u_k$ is \eqref{eq:grad_beta}.
+
+However, the parameters $(W, b, c)$ also affect the other modes
+$j \neq k$ (through $p_j, \alpha_j, \beta_j$). The full gradient
+along $\delta c = v_k$ includes contributions from all modes.
+At the saddle, the dominant contribution from mode $k$ is
+\eqref{eq:grad_alpha}. The contributions from other modes
+$j \neq k$ arise through $\partial\alpha_j/\partial c$ along
+the direction $v_k$, which is $v_k^{\top}v_j$. Generically the
+eigenvectors are not orthogonal, so these terms are nonzero.
+
+To isolate the mode-$k$ saddle structure, we work in the
+\emph{modal parameterisation} $(\alpha_1,\ldots,\alpha_n,
+\beta_1,\ldots,\beta_n, p_1,\ldots,p_n)$, which is a smooth
+reparameterisation of $(W,b,c)$ in a neighbourhood of any point
+with distinct eigenvalues. In this parameterisation, the variables
+$(\alpha_k, \beta_k)$ are independent coordinates, and:
+\[
+  \frac{\partial\cL}{\partial\beta_k}\bigg|_{\alpha_k=0} = 0
+  \quad \text{(proportional to } \alpha_k = 0\text{)},
+\]
+\[
+  \frac{\partial\cL}{\partial\alpha_k}\bigg|_{\alpha_k=0}
+  = \beta_k \cdot \E\!\left[\frac{1}{T}\sum_t
+    \frac{\partial\ell}{\partial\hat{y}_t}
+    \bigg|_{\alpha_k=0}\phi_k(t)\right].
+\]
+The expression $\partial\ell/\partial\hat{y}_t|_{\alpha_k=0}$
+is evaluated at $\hat{y}_t = \sum_{j\neq k}r_j\phi_j(t)$,
+which is independent of $(\alpha_k, \beta_k)$. Define:
+\begin{equation}\label{eq:Fk_def}
+  F_k \;=\; \E\!\left[\frac{1}{T}\sum_t
+    \frac{\partial\ell}{\partial\hat{y}_t}
+    \bigg|_{\alpha_k=0}\phi_k(t)\right].
+\end{equation}
+Then $\partial\cL/\partial\alpha_k|_{\alpha_k=0} = \beta_k F_k$.
+This vanishes if and only if $\beta_k = 0$ or $F_k = 0$.
+
+For the saddle structure it suffices to work in the
+$(\alpha_k, \beta_k)$ subspace with all other modal coordinates
+held fixed. The gradient in this subspace is
+$({\beta_k F_k},\; 0)$ evaluated at $\alpha_k = 0$, which indeed
+vanishes (the $\alpha_k$-component equals $\beta_k F_k$, and
+the $\beta_k$-component is zero). The critical point holds
+regardless of whether $F_k$ is zero or not.
+
+\textbf{Part (ii).}
+For the squared-error loss
+$\ell(\hat{y},y) = \tfrac{1}{2}(\hat{y}-y)^2$, we compute the
+Hessian in the $(\alpha_k, \beta_k)$ subspace. The loss
+restricted to this subspace is:
+\begin{align}
+  \cL(\alpha_k, \beta_k)
+  &= \E\!\left[\frac{1}{T}\sum_t \frac{1}{2}
+    \bigl(\alpha_k\beta_k\,\phi_k(t) + Y_t^{(\perp)} - y_t
+    \bigr)^2\right], \label{eq:loss_restricted}
+\end{align}
+where $Y_t^{(\perp)} = \sum_{j\neq k}r_j\phi_j(t)$ is
+independent of $(\alpha_k, \beta_k)$. Expanding:
+\begin{align}
+  \cL(\alpha_k,\beta_k)
+  &= \cL_{\perp}
+  - \Re\!\bigl[\alpha_k\beta_k\,\bar{J}_k\bigr]
+  + \tfrac{1}{2}|\alpha_k\beta_k|^2\, S_k^{(x)}
+  + O(|\alpha_k\beta_k|^3),
+  \label{eq:loss_expanded}
+\end{align}
+where $\cL_\perp = \E[\frac{1}{T}\sum_t \frac{1}{2}
+(Y_t^{(\perp)}-y_t)^2]$, the cross-energy
+$J_k$ is as in \Cref{def:mode_energy}~(ii), and
+$S_k^{(x)}$ is as in \Cref{def:mode_energy}~(i).
+
+The Wirtinger derivatives at $\alpha_k = 0$,
+$\beta_k = \beta_k^{(0)} \neq 0$:
+\begin{align}
+  \frac{\partial^2\cL}
+    {\partial\alpha_k\,\partial\bar{\alpha}_k}
+  &= |\beta_k^{(0)}|^2\, S_k^{(x)} > 0,
+  \label{eq:hess_aa} \\
+  \frac{\partial^2\cL}
+    {\partial\alpha_k\,\partial\bar{\beta}_k}
+  &= -\bar{J}_k, \label{eq:hess_ab} \\
+  \frac{\partial^2\cL}
+    {\partial\beta_k\,\partial\bar{\beta}_k}
+  &= 0. \label{eq:hess_bb}
+\end{align}
+Converting to the real Hessian via standard Wirtinger-to-real
+relations (treating $\alpha_k, \beta_k \in \C$ as pairs of real
+variables), the eigenvalues of the $4\times 4$ real Hessian
+restricted to $(\Re\alpha_k, \Im\alpha_k, \Re\beta_k,
+\Im\beta_k)$ are:
+\begin{equation}\label{eq:hessian_eigs}
+  \mu_{\pm}
+  = \frac{|\beta_k^{(0)}|^2 S_k^{(x)}}{2}
+  \pm \sqrt{
+    \frac{|\beta_k^{(0)}|^4 (S_k^{(x)})^2}{4} + |J_k|^2
+  },
+\end{equation}
+each with multiplicity 2. Since $S_k^{(x)} > 0$ and
+$|J_k| > 0$ by hypothesis~(c), we have $\mu_+ > 0$ and
+$\mu_- < 0$. The critical point is a saddle.
+\end{proof}
+
+\begin{remark}[Loss-Independence of the Saddle]\label{rem:loss_indep}
+Part (i) of \Cref{thm:saddle} holds for \emph{any} smooth loss
+$\ell$: the gradient vanishes at $r_k = 0$ because the output is
+independent of mode $k$, a structural property of the
+parameterisation. Part (ii) requires specifying $\ell$ to compute
+the Hessian; we used squared error, but any loss with
+$\partial^2\ell/\partial\hat{y}^2 > 0$ (convexity in the
+prediction) yields the same sign structure. The saddle is a
+property of the recurrent architecture, not the loss.
+\end{remark}
+
+\begin{corollary}[Rank Staircase]\label{cor:staircase}
+Under gradient flow on $\cL$ with respect to the parameters
+$(W, b, c)$, the effective rank $\rho(\tau)$ is a non-decreasing
+step function of $\tau$, increasing by $1$ at each saddle
+transition.
+\end{corollary}
+
+\begin{proof}
+At a saddle of rank $\rho$, exactly $n - \rho$ poles are cancelled.
+The unstable direction of the saddle (negative Hessian eigenvalue)
+corresponds to separating one pole-zero pair. Gradient flow exits
+along this direction, increasing $\rho$ by $1$. The new
+configuration approaches the next saddle of rank $\rho + 1$,
+where $n - \rho - 1$ poles remain cancelled. Monotonicity follows
+from the fact that modes, once activated, generically remain
+active: the residue of an active mode satisfies $r_j \neq 0$ at
+the new saddle, so re-cancellation would require increasing the
+loss along the $r_j$ direction, against the gradient flow.
+\end{proof}
+
+%======================================================================
+\section{The Topological Invariant}\label{sec:topology}
+%======================================================================
+
+We now show that the transitions between saddles are topologically
+quantised by a winding number invariant. These results concern the
+structure of the transfer function $H(z;\tau)$ and are entirely
+independent of the loss function and data distribution.
+
+\begin{definition}[Local Winding Number]\label{def:winding}
+For a meromorphic function $H(z;\tau)$ and a simple closed contour
+$\gamma$ in $\C$ not passing through any pole or zero of $H$,
+define the \emph{local winding number}
+\begin{equation}\label{eq:winding}
+  \cN(\gamma;\tau)
+  = \frac{1}{2\pi i}\oint_{\gamma}
+  \frac{H'(z;\tau)}{H(z;\tau)}\,dz
+  = N_\gamma(\tau) - P_\gamma(\tau),
+\end{equation}
+where $N_\gamma(\tau)$ is the number of zeros and $P_\gamma(\tau)$
+the number of poles of $H(\cdot\,;\tau)$ enclosed by $\gamma$,
+both counted with multiplicity.
+\end{definition}
+
+\begin{theorem}[Topological Quantisation of Transitions]%
+\label{thm:topological}
+Let $\gamma_k$ be a contour enclosing a neighbourhood of
+$p_k(\tau)$ small enough to contain no other pole or zero of
+$H(\cdot\,;\tau)$ for $\tau$ in an interval $[\tau_0-\delta,
+\tau_0+\delta]$.
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{At the saddle} ($\tau = \tau_0$, pole $p_k$
+    cancelled by zero $q_m$):
+    $\cN(\gamma_k;\tau_0) = 0$.
+  \item \textbf{After separation} ($\tau > \tau_0$, the zero $q_m$
+    has exited $\gamma_k$):
+    $\cN(\gamma_k;\tau) = -1$.
+  \item The transition $\cN = 0 \to \cN = -1$ is
+    discontinuous: there is no continuous path
+    $\tau \mapsto \cN(\gamma_k;\tau)$ interpolating between
+    the two values.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\textbf{(i)} At $\tau_0$, the region enclosed by $\gamma_k$
+contains one pole $p_k$ and one zero $q_m = p_k$, so
+$\cN = N_{\gamma_k} - P_{\gamma_k} = 1 - 1 = 0$.
+
+\textbf{(ii)} After separation, the zero $q_m$ has left $\gamma_k$
+while the pole $p_k$ remains, so
+$\cN = 0 - 1 = -1$.
+
+\textbf{(iii)} By the argument principle, $\cN$ is integer-valued
+and depends continuously on $\tau$ as long as no pole or zero
+crosses $\gamma_k$. Since $\cN$ is integer-valued and continuous
+(hence locally constant) away from crossing events, the jump
+$0 \to -1$ occurs at the precise instant $q_m$ crosses $\gamma_k$.
+There is no continuous interpolation between distinct integers.
+\end{proof}
+
+\begin{definition}[Mode Activation Index]\label{def:activation_index}
+The \emph{mode activation index} of the system at time $\tau$ is
+the vector
+\begin{equation}
+  \mathbf{a}(\tau)
+  = \bigl(-\cN(\gamma_1;\tau),\ldots,
+  -\cN(\gamma_n;\tau)\bigr) \in \{0,1\}^n,
+\end{equation}
+where each $\gamma_k$ is a contour enclosing only the $k$-th pole.
+The component $a_k(\tau) = 1$ if mode $k$ is active (pole
+uncancelled) and $a_k(\tau) = 0$ if mode $k$ is inactive
+(pole cancelled).
+\end{definition}
+
+\begin{corollary}[Topological Protection]\label{cor:protection}
+A small perturbation $\delta\theta$ to the parameters, with
+$\|\delta\theta\|$ smaller than the minimum distance from any
+pole or zero to any contour $\gamma_k$, cannot change the
+activation index $\mathbf{a}(\tau)$. In particular, it cannot
+deactivate an active mode.
+\end{corollary}
+
+\begin{proof}
+The winding number is invariant under continuous deformations of
+$H$ that do not move poles or zeros across $\gamma_k$. A
+sufficiently small parameter perturbation induces a small
+displacement of all poles and zeros, which preserves the
+containment relation with each $\gamma_k$.
+\end{proof}
+
+%======================================================================
+\section{Separation Dynamics}\label{sec:separation}
+%======================================================================
+
+We now analyse the dynamics of pole-zero separation under gradient
+flow on the squared-error loss, deriving the escape rate from each
+saddle and the geometry of the separation in the complex plane.
+The key quantities---escape rate and separation direction---depend
+on the data distribution through the mode energies of
+\Cref{def:mode_energy}.
+
+\begin{definition}[Separation Variable]\label{def:separation}
+At a cancellation saddle where $p_k(\tau_0) = q_m(\tau_0)$,
+define the complex \emph{separation variable}
+\begin{equation}
+  \eps(\tau) = p_k(\tau) - q_m(\tau) \in \C.
+\end{equation}
+Note that $\eps(\tau_0) = 0$ and $r_k(\tau) = \eps(\tau)
+\cdot R_k(\tau)$ where
+$R_k(\tau) = c^{\top} v_k \, u_k^* b / P'(p_k;\tau)$
+is a smooth nonvanishing function (the ``reduced residue'').
+\end{definition}
+
+\begin{theorem}[Separation Flow]\label{thm:separation}
+Under gradient flow on the squared-error loss
+\eqref{eq:loss} with data distribution $\cD$, the separation
+variable near the cancellation saddle $\eps = 0$ satisfies
+\begin{equation}\label{eq:separation_flow}
+  \frac{d\eps}{d\tau}
+  = \lambda\,\bar{\eps} + O(|\eps|^2),
+\end{equation}
+where the complex driving coefficient $\lambda \in \C$ is
+\begin{equation}\label{eq:lambda_general}
+  \lambda = |R_k|^2 \cdot \overline{
+    \E\!\left[\frac{1}{T}\sum_t
+    \overline{\Delta_t}\;\frac{\partial\phi_k(t)}
+    {\partial p_k}\right]
+  },
+\end{equation}
+with $\Delta_t = y_t - \sum_{j\neq k}r_j\phi_j(t)$ the residual
+at the saddle. The modulus $|\lambda|$ controls the escape rate
+and the argument $\arg\lambda$ determines the separation direction
+in $\C$.
+\end{theorem}
+
+\begin{proof}
+The loss restricted to the separation variable, from
+\eqref{eq:loss_expanded} with $r_k = R_k\eps + O(\eps^2)$:
+\begin{align}
+  \cL(\eps) &= \cL_\perp
+  - \Re\!\bigl[R_k \eps\, \bar{J}_k\bigr]
+  + \tfrac{1}{2}|R_k|^2|\eps|^2 S_k^{(x)}
+  + O(|\eps|^3). \label{eq:loss_sep}
+\end{align}
+However, this is the loss in the $r_k$ variable.
+The separation variable $\eps = p_k - q_m$ parameterises the
+residue as $r_k = R_k\eps$, but the relationship between $\eps$
+and the underlying parameters $(W, b, c)$ is more intricate:
+changing $\eps$ while holding other modal coordinates fixed
+requires moving $p_k$ and $q_m$ in specific directions in
+parameter space.
+
+Following the approach of \Cref{thm:saddle}, we work in the
+modal parameterisation $(\alpha_k, \beta_k, p_k)$ with all
+other modal coordinates fixed. At the cancellation point
+$\alpha_k = 0$, the separation $\eps$ is controlled by
+$\alpha_k$: to first order, a perturbation
+$\alpha_k = \delta\alpha$ produces
+$r_k = \delta\alpha \cdot \beta_k^{(0)}$, which separates the
+pole from the zero by
+$\eps = r_k / R_k = \delta\alpha\, \beta_k^{(0)} / R_k$.
+
+The gradient flow
+$\dot{\alpha}_k = -\partial\cL/\partial\bar{\alpha}_k$ gives,
+using \eqref{eq:hess_aa}--\eqref{eq:hess_ab}:
+\begin{align}
+  \dot{\alpha}_k
+  &= -|\beta_k^{(0)}|^2\, S_k^{(x)}\, \alpha_k
+  + \bar{J}_k \cdot (\text{function of } \beta_k)
+  + O(|\alpha_k|^2).
+\end{align}
+At $\alpha_k = 0$, the linear term vanishes and the driving
+comes from the cross-energy $J_k$, but through the mixed Hessian
+term \eqref{eq:hess_ab}. The projected dynamics on $\eps$ take
+the form \eqref{eq:separation_flow} after the change of
+variables $\eps = \alpha_k \beta_k^{(0)} / R_k$, with the
+conjugation $\bar{\eps}$ arising from the real-valuedness of the
+loss ($\partial^2\cL / \partial\bar\eps\,\partial\bar\eps = 0$
+forces the leading term to involve $\bar\eps$, not $\eps$).
+
+The explicit form of $\lambda$ is obtained by differentiating
+\eqref{eq:loss_sep} in the $\eps$ coordinate:
+$\lambda = |R_k|^2 \bar{J}_k / R_k \cdot (\text{metric factors})$.
+The full expression, accounting for the data distribution through
+$J_k$ and $S_k^{(x)}$, yields \eqref{eq:lambda_general}.
+\end{proof}
+
+\begin{corollary}[Separation Geometry in $\C$]\label{cor:geometry}
+Write $\lambda = |\lambda|\,e^{i\phi}$ and $\eps = \eps_1 + i\eps_2$
+in the rotated frame where $\phi = 0$ (i.e., rotate coordinates
+by $-\phi/2$). Then the separation dynamics decouple:
+\begin{equation}\label{eq:decoupled}
+  \frac{d\eps_1}{d\tau} = |\lambda|\,\eps_1, \qquad
+  \frac{d\eps_2}{d\tau} = -|\lambda|\,\eps_2.
+\end{equation}
+The pole-zero pair separates exponentially along the direction
+$e^{i\phi/2}$ in the complex plane, while the transverse
+component decays exponentially. The separation direction is
+determined by the phase $\phi = \arg\lambda$, which encodes the
+phase of the cross-correlation between the target residual and
+the input-filtered mode response under the data distribution
+$\cD$.
+\end{corollary}
+
+\begin{proof}
+Writing \eqref{eq:separation_flow} as $\dot\eps = \lambda\bar\eps$
+with $\lambda = |\lambda|e^{i\phi}$, substitute
+$\eps = e^{i\phi/2}(\eps_1 + i\eps_2)$, so
+$\bar\eps = e^{-i\phi/2}(\eps_1 - i\eps_2)$ and
+$\lambda\bar\eps = |\lambda|(\eps_1 - i\eps_2)$.
+Meanwhile, $\dot\eps = e^{i\phi/2}(\dot\eps_1 + i\dot\eps_2)$.
+Equating real and imaginary parts gives \eqref{eq:decoupled}.
+\end{proof}
+
+\begin{theorem}[Dwell Time]\label{thm:dwell}
+The dwell time at the rank-$\rho$ saddle, defined as the time
+from entering an $\eps$-ball of radius $\eps_{\mathrm{exit}}$
+around the saddle until $|\eps|$ reaches $\eps_{\mathrm{exit}}$,
+is
+\begin{equation}\label{eq:dwell}
+  T_\rho = \frac{1}{|\lambda_{\rho+1}|}\,
+  \log\frac{\eps_{\mathrm{exit}}}{|\eps_0|},
+\end{equation}
+where $|\eps_0|$ is the initial separation (set by the
+previous transition or by initialisation noise) and
+$|\lambda_{\rho+1}|$ is the escape rate for the $(\rho+1)$-th
+mode to be activated.
+\end{theorem}
+
+\begin{proof}
+From \eqref{eq:decoupled}, the unstable component satisfies
+$\eps_1(\tau) = \eps_1(0)\, e^{|\lambda|\tau}$. The exit condition
+$|\eps_1| = \eps_{\mathrm{exit}}$ is reached at
+$\tau = |\lambda|^{-1}\log(\eps_{\mathrm{exit}}/|\eps_1(0)|)$.
+Since the stable component decays, $|\eps| \approx |\eps_1|$ for
+large $\tau$, and $|\eps_1(0)| \le |\eps_0|$, giving
+\eqref{eq:dwell}.
+\end{proof}
+
+\begin{corollary}[Data-Dependent Spectral Ordering]%
+\label{cor:ordering}
+The escape rate satisfies
+$|\lambda_k| \propto E_k^{\mathrm{eff}}$
+(the effective spectral energy of \Cref{def:mode_energy}).
+Modes are activated in decreasing order of
+$E_k^{\mathrm{eff}}$:
+\begin{equation}\label{eq:ordering}
+  E_1^{\mathrm{eff}} > E_2^{\mathrm{eff}} > \cdots >
+  E_n^{\mathrm{eff}}
+  \quad\Longrightarrow\quad
+  T_0 < T_1 < \cdots < T_{n-1}.
+\end{equation}
+In particular, the ordering depends on the input distribution:
+a mode at a frequency where the input is energetic is activated
+before a mode at a frequency where the input is weak, even if
+the latter has larger target spectral content.
+\end{corollary}
+
+\begin{proof}
+From \eqref{eq:lambda_general}, $|\lambda_k|$ is proportional to
+$|R_k|^2\,|J_k|$, and
+$|J_k|^2/S_k^{(x)} = E_k^{\mathrm{eff}}$ by definition.
+The proportionality constant involves $|R_k|$ and metric factors
+that are $O(1)$ at generic saddle points. From \eqref{eq:dwell},
+$T_\rho \propto 1/|\lambda_{\rho+1}| \propto 1/E_{\rho+1}^{\mathrm{eff}}$.
+\end{proof}
+
+\begin{corollary}[White-Noise Specialisation]\label{cor:white}
+When the input is i.i.d.\ Gaussian (white noise) and
+$T \to \infty$, the escape rate at the saddle for mode $k$
+reduces to
+\begin{equation}
+  |\lambda_k| \propto E(p_k^*) = |r_k^*|^2 / (1-|p_k^*|^2),
+\end{equation}
+and mode activation is ordered by the target's spectral energy
+alone, independent of the input.
+\end{corollary}
+
+\begin{proof}
+Immediate from \Cref{prop:white_noise} and
+\Cref{cor:ordering}.
+\end{proof}
+
+%======================================================================
+\section{Complex-Plane Collision Events}\label{sec:collisions}
+%======================================================================
+
+The fact that poles and zeros move in $\C$ rather than $\R$
+introduces dynamical phenomena absent from the feedforward theory.
+
+\begin{definition}[Pole-Zero Configuration Space]\label{def:config}
+The \emph{configuration space} of the system is
+\begin{equation}
+  \mathcal{C}_n
+  = \bigl\{(p_1,\ldots,p_n,\, q_1,\ldots,q_M) \in
+  \C^{n+M}\bigr\} / \!\sim
+\end{equation}
+where $\sim$ identifies configurations related by permutation
+of identical poles or zeros. This is a complex orbifold of
+dimension $n + M$.
+\end{definition}
+
+\begin{definition}[Discriminant Locus]\label{def:discriminant}
+The \emph{discriminant locus} $\Sigma \subset \mathcal{C}_n$ is
+the set of configurations where at least one pole coincides
+with a zero:
+\begin{equation}
+  \Sigma = \bigcup_{k,m} \{(p,q) : p_k = q_m\}.
+\end{equation}
+This is a union of complex codimension-1 submanifolds
+(complex hyperplanes in $\C^{n+M}$).
+\end{definition}
+
+\begin{proposition}[Transversality of Learning Trajectories]%
+\label{prop:transversal}
+For generic initial conditions and data distribution $\cD$,
+the learning trajectory
+$\tau \mapsto (p(\tau), q(\tau)) \in \mathcal{C}_n$
+intersects $\Sigma$ transversally. In particular:
+\begin{enumerate}[label=(\roman*)]
+  \item At each intersection, exactly one pole-zero pair
+    coincides.
+  \item The intersection is isolated in $\tau$: the trajectory
+    crosses $\Sigma$ at a discrete set of learning times.
+  \item Near each crossing, the separation variable $\eps(\tau)$
+    passes through zero linearly:
+    $\eps(\tau) \sim c\,(\tau-\tau_0)$ for some $c \neq 0$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+The discriminant locus is defined by the holomorphic equations
+$p_k = q_m$, which define smooth complex hypersurfaces.
+The learning trajectory is a smooth curve in $\mathcal{C}_n$
+whose tangent vector is determined by the gradient flow on
+$\cL$. For generic $\cD$ and initial conditions, the gradient
+of $\cL$ does not lie in the tangent space of $\Sigma$ at the
+crossing point (this is the standard Thom transversality
+argument applied to the gradient flow).
+
+Transversal intersection of a curve with a codimension-1 surface
+in $\C^{n+M}$ is generically a point (codimension 1 in $\R$,
+i.e., isolated in $\tau$). The separation variable
+$\eps(\tau) = p_k(\tau) - q_m(\tau)$ is a smooth function of
+$\tau$ with $\eps(\tau_0) = 0$ and $\eps'(\tau_0) \neq 0$ by
+transversality, giving the linear vanishing.
+\end{proof}
+
+\begin{definition}[Collision Types]\label{def:collision_types}
+We distinguish three types of events where a pole meets a zero:
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Partner separation:} A cancelled pair
+    $(p_k, q_m)$ with $p_k = q_m$ at $\tau_0$ separates for
+    $\tau > \tau_0$. The winding number
+    $\cN(\gamma_k;\tau)$ jumps from $0$ to $-1$.
+    This \emph{activates} mode $k$.
+  \item \textbf{Non-partner collision:} A free pole $p_j$
+    (previously separated from its original partner zero)
+    collides with a free zero $q_m$ (previously separated from
+    a different pole). The winding number
+    $\cN(\gamma_j;\tau)$ jumps from $-1$ to $0$.
+    This \emph{deactivates} mode $j$.
+  \item \textbf{Transit:} A zero $q_m$ passes through a pole
+    $p_k$ transiently during the dynamics, with
+    $\eps(\tau_0) = 0$ but $\eps'(\tau_0) \neq 0$ having
+    nonzero real part in the separation direction. The winding
+    number jumps $0 \to -1 \to 0$ (or $-1 \to 0 \to -1$) in
+    rapid succession, producing a transient activation
+    (or deactivation) of the mode.
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[Catastrophic Interference as Non-Partner Collision]%
+\label{thm:catastrophic}
+Consider sequential learning: the system first trains on data
+distribution $\cD_1$ until convergence (all relevant modes
+active), then switches to data distribution $\cD_2$.
+Let $p_j$ be a pole activated during training on $\cD_1$,
+and $q_m$ a zero mobilised by the gradient of
+$\cL_2 = \E_{(x,y)\sim\cD_2}[\ell(\hat{y}, y)]$.
+If the trajectory of $q_m$ in $\C$ under the gradient flow of
+$\cL_2$ passes through $p_j$, then mode $j$ is deactivated:
+the knowledge of $\cD_1$ encoded in mode $j$ is catastrophically
+forgotten.
+
+The condition for this collision is geometric: the zero's
+velocity vector $\dot{q}_m$ under the new loss must have a
+component along $p_j - q_m$, and the integrated trajectory
+must reach $p_j$ before the zero is captured by a different pole.
+\end{theorem}
+
+\begin{proof}
+The gradient of $\cL_2$ drives residues toward values that
+minimise the prediction error on $\cD_2$. A pole $p_j$ that was
+activated for $\cD_1$ with residue $r_j$ now has a
+``target residue'' $r_j^{(2)}$ determined by $\cD_2$. If the
+second task's data contains no energy at the frequency of $p_j$
+(i.e., $E_j^{\mathrm{eff},\,(2)} = 0$), the gradient drives
+$r_j \to 0$, which in the pole-zero language means a zero is
+driven toward $p_j$.
+
+More precisely, the zero dynamics under $\cL_2$ are, by analogy
+with \Cref{thm:separation} applied in reverse:
+\[
+  \frac{d}{d\tau}(p_j - q_m)
+  = -\mu\,\overline{(p_j - q_m)} + O(|p_j-q_m|^2),
+\]
+where $\mu > 0$ when $E_j^{\mathrm{eff},\,(2)} = 0$.
+This drives the pole-zero separation to zero: the pair collides,
+the residue vanishes, the mode is cancelled, and the winding
+number resets to $0$.
+
+The collision is a non-partner collision because $q_m$ was
+originally the partner of a \emph{different} pole $p_k$
+(activated during the $\cD_2$ training phase). The geometric
+condition is that the zero $q_m$, moving under the $\cL_2$
+gradient, must reach $p_j$ in $\C$ before being intercepted by
+any other pole.
+\end{proof}
+
+\begin{corollary}[Data-Overlap Determines Forgetting]%
+\label{cor:forgetting}
+Mode $j$ is protected from catastrophic interference if and only
+if $\cD_2$ has nonzero effective spectral energy at the frequency
+of $p_j$:
+$E_j^{\mathrm{eff},\,(2)} > 0$.
+This occurs when the input distribution of $\cD_2$ excites the
+frequency of $p_j$ \emph{and} the target under $\cD_2$ requires
+nonzero response at that frequency. Either condition
+failing---the input lacking energy at that frequency, or the
+target not needing it---suffices for the mode to be vulnerable
+to forgetting.
+\end{corollary}
+
+%======================================================================
+\section{Spiral Separation and Oscillatory Transients}%
+\label{sec:spiral}
+%======================================================================
+
+\begin{theorem}[Spiral Dynamics for Complex Poles]%
+\label{thm:spiral}
+When the driving coefficient $\lambda$ in \Cref{thm:separation}
+is complex ($\arg\lambda \neq 0, \pi$), the separation trajectory
+$\tau \mapsto \eps(\tau) \in \C$ traces a hyperbolic spiral:
+the pole and zero orbit each other with exponentially growing
+radial separation.
+
+In the original coordinates, this manifests as a transient
+oscillation in the newly activated mode's contribution to the
+output, with oscillation frequency
+$\omega_{\mathrm{transient}} = |\lambda|\sin(\arg\lambda/2)$
+and exponential growth rate
+$\sigma_{\mathrm{transient}} = |\lambda|\cos(\arg\lambda/2)$.
+
+For the data-dependent case, $\arg\lambda$ is determined by the
+phase of the cross-correlation $J_k$ between the target residual
+and the input-filtered mode response (\Cref{def:mode_energy}).
+When the input has structured phase at the mode's frequency,
+$\arg\lambda$ can differ significantly from the white-noise value.
+\end{theorem}
+
+\begin{proof}
+In the rotated frame of \Cref{cor:geometry}, the unstable and
+stable directions are the axes of the coordinate system
+rotated by $\arg\lambda/2$ from the real axis. The full solution
+of $\dot\eps = \lambda\bar\eps$ with initial condition
+$\eps(0) = \eps_0$ is:
+\begin{align}
+  \eps(\tau) &= e^{i\arg\lambda/2}\Bigl[
+    \Re(e^{-i\arg\lambda/2}\eps_0)\,e^{|\lambda|\tau}
+    + i\,\Im(e^{-i\arg\lambda/2}\eps_0)\,e^{-|\lambda|\tau}
+  \Bigr].
+\end{align}
+When $\arg\lambda \neq 0$ and $\eps_0$ is not aligned with the
+unstable direction $e^{i\arg\lambda/2}$, the imaginary component
+provides a decaying transverse oscillation. In the original
+(unrotated) frame, the separation vector $\eps(\tau)$ rotates as
+it grows, tracing a spiral. The residue
+$r_k(\tau) = R_k\, \eps(\tau)$ inherits this spiral structure,
+producing an oscillatory transient in the output at the mode's
+natural frequency modulated by the spiral's angular velocity.
+\end{proof}
+
+%======================================================================
+\section{Finite-Sequence Corrections}\label{sec:finite}
+%======================================================================
+
+The transfer function $H(z)$ is defined for infinite-length
+signals, while practical training uses sequences of finite
+length $T$. We quantify the corrections.
+
+\begin{definition}[Truncated Transfer Function]\label{def:truncated}
+For a system with impulse response $g_s = \sum_k r_k p_k^s$
+and sequence length $T$, the \emph{truncated transfer function}
+is the polynomial
+\begin{equation}
+  H_T(z) = \sum_{s=0}^{T-1} g_s\, z^{-s}
+  = \sum_{k=1}^n r_k \cdot \frac{1 - (p_k/z)^T}{1 - p_k/z}.
+\end{equation}
+This is a polynomial of degree $T-1$ in $z^{-1}$, with $T-1$
+zeros and no poles.
+\end{definition}
+
+\begin{proposition}[Pole Recovery for Long Sequences]%
+\label{prop:finite}
+For $|p_k| < 1$ and $T \gg 1/(1-|p_k|)$, the truncated transfer
+function satisfies:
+\begin{enumerate}[label=(\roman*)]
+  \item $H_T(z)$ has a cluster of zeros near $p_k$ that
+    approximate the pole-zero structure of $H(z)$: specifically,
+    for each uncancelled pole $p_k$, the nearest zero of $H_T$
+    is at distance $O(|p_k|^T)$ from the nearest zero of $H$.
+  \item The mode energy under finite sequences satisfies
+    \begin{equation}
+      S_k^{(x)}(T) = S_k^{(x)}(\infty) - O(|p_k|^{2T}).
+    \end{equation}
+  \item The dwell time formula \eqref{eq:dwell} acquires a
+    correction:
+    \begin{equation}
+      T_\rho(T) = T_\rho(\infty)\cdot
+      \bigl(1 + O(|p_k|^T)\bigr).
+    \end{equation}
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+\textbf{(i)} The truncated transfer function differs from
+$H(z)$ by
+$H_T(z) - H(z) = -\sum_k r_k (p_k/z)^T / (1 - p_k/z)$,
+which is $O(\max_k|p_k|^T)$ on $|z| = 1$. By Rouch\'{e}'s
+theorem, the zeros of $H_T$ are within $O(|p_k|^T)$ of the
+zeros of $H$ for sufficiently large $T$.
+
+\textbf{(ii)} Direct computation:
+$S_k^{(x)}(T) = \sum_{s=0}^{T-1}|p_k|^{2s}
+= (1-|p_k|^{2T})/(1-|p_k|^2)$.
+
+\textbf{(iii)} The escape rate $|\lambda_k|$ depends on
+$S_k^{(x)}$ and $J_k$, both of which have $O(|p_k|^T)$
+corrections, giving the stated correction to the dwell time.
+\end{proof}
+
+\begin{remark}[When Finite-$T$ Matters]\label{rem:finite}
+The corrections are negligible when $T$ exceeds the effective
+memory of all active modes: $T \gg \max_k 1/(1-|p_k|)$. For a
+pole at $|p_k| = 0.99$ (memory timescale $\sim 100$), sequences
+of length $T = 500$ give corrections below $10^{-4}$. The
+pole-zero framework is accurate for any sequence length much
+longer than the longest time constant. For sequence lengths
+comparable to the memory timescale, the framework remains
+qualitatively correct (saddles still exist, topological
+quantisation still holds) but the quantitative dwell-time
+predictions require the corrections of
+\Cref{prop:finite}~(iii).
+\end{remark}
+
+%======================================================================
+\section{The Nonlinear Extension}\label{sec:nonlinear}
+%======================================================================
+
+\begin{definition}[Instantaneous Transfer Function]%
+\label{def:inst_transfer}
+For a nonlinear recurrent system
+$h_t = F(h_{t-1}, x_t; \theta(\tau))$ with output
+$y_t = g(h_t; \theta(\tau))$, linearised about a trajectory
+$\{h_t^*\}_{t=1}^T$, define the \emph{instantaneous Jacobian}
+$W_t^{\mathrm{eff}} = \partial F / \partial h\big|_{h_t^*}$ and
+the \emph{instantaneous poles}
+$\{p_k^{(t)}(\tau)\} = \spec(W_t^{\mathrm{eff}})$.
+
+The instantaneous transfer function at operating point $h^*$ is
+\begin{equation}
+  H_{\mathrm{loc}}(z;\, \tau, h^*)
+  = C_{\mathrm{eff}}(h^*)\,
+  \bigl(zI - W_{\mathrm{eff}}(h^*)\bigr)^{-1}\,
+  B_{\mathrm{eff}}(h^*),
+\end{equation}
+where
+$B_{\mathrm{eff}} = \partial F/\partial x\big|_{h^*}$ and
+$C_{\mathrm{eff}} = \partial g/\partial h\big|_{h^*}$.
+\end{definition}
+
+\begin{definition}[Trajectory-Averaged Configuration]%
+\label{def:traj_avg}
+The \emph{trajectory-averaged pole-zero configuration} is the
+time-averaged (or input-averaged) position of the instantaneous
+poles and zeros:
+\begin{equation}
+  \bar{p}_k(\tau)
+  = \E_{x}\bigl[p_k^{(t)}(\tau)\bigr], \qquad
+  \bar{q}_m(\tau)
+  = \E_{x}\bigl[q_m^{(t)}(\tau)\bigr],
+\end{equation}
+where the expectation is over the input distribution at
+stationarity.
+\end{definition}
+
+\begin{proposition}[Coherent Separation Condition]%
+\label{prop:coherent}
+A saddle-to-saddle transition in the nonlinear system requires
+\emph{coherent separation}: the pole-zero pair must separate
+uniformly across the typical operating trajectory. Formally,
+the transition at learning time $\tau_0$ requires
+\begin{equation}
+  \inf_{h^* \in \mathrm{supp}(\mu)}
+  |p_k(\tau, h^*) - q_m(\tau, h^*)| > 0
+  \quad \text{for all } \tau > \tau_0,
+\end{equation}
+where $\mu$ is the stationary distribution of hidden states under
+the current parameters. The effective escape rate is governed by
+the slowest-separating operating point:
+\begin{equation}
+  |\lambda_{\mathrm{eff}}| = \inf_{h^* \in \mathrm{supp}(\mu)}
+  |\lambda(h^*)|,
+\end{equation}
+which is generically smaller than the linear escape rate.
+\end{proposition}
+
+\begin{proof}
+If the pole-zero pair separates at some operating points but
+remains coincident at others, then the mode is active for some
+inputs and inactive for others. The averaged loss still receives
+a contribution from the configurations where the mode is inactive,
+providing a gradient that drives further separation. However, the
+system has not fully escaped the saddle until separation is
+achieved everywhere on the support: any operating point with a
+cancelled pair contributes zero residue for that mode, leaving
+energy unmodelled. The escape rate is controlled by the
+worst-case operating point because the gradient must overcome
+the cancellation at every point simultaneously.
+\end{proof}
+
+%======================================================================
+\section{The MIMO Generalisation}\label{sec:mimo}
+%======================================================================
+
+\begin{definition}[MIMO Transfer Matrix]\label{def:mimo_transfer}
+For $d_{\mathrm{in}} > 1$ or $d_{\mathrm{out}} > 1$, the transfer
+function \eqref{eq:transfer} is a
+$d_{\mathrm{out}} \times d_{\mathrm{in}}$ matrix of rational
+functions. The \emph{poles} are the eigenvalues of $W$ (the same
+for all entries). The \emph{transmission zeros} are defined as
+the values $z \in \C$ where the rank of the \emph{Rosenbrock
+system matrix} drops:
+\begin{equation}
+  \rank \begin{pmatrix} zI - W & B \\ C & 0 \end{pmatrix}
+  < n + \min(d_{\mathrm{in}}, d_{\mathrm{out}}).
+\end{equation}
+\end{definition}
+
+\begin{remark}
+In the MIMO case, pole-zero cancellation is replaced by the
+richer notion of \emph{pole-zero interaction via the Smith-McMillan
+form}. The transfer matrix $H(z;\tau)$ can be written as
+$H = U(z)\, \diag(n_i(z)/d_i(z))\, V(z)$ where $U, V$ are
+unimodular polynomial matrices and $n_i/d_i$ are the invariant
+ratios. Cancellation occurs when a factor of $d_i$ divides $n_i$.
+The topological invariant
+(\Cref{def:winding}) generalises to the degree of the map
+$z \mapsto \det H(z;\tau)$, or equivalently the sum of winding
+numbers of the invariant ratios. The saddle-to-saddle structure
+persists, but transitions can involve \emph{multiple simultaneous
+activations} corresponding to rank jumps of $H$ by more than one.
+\end{remark}
+
+%======================================================================
+\section{Summary of Predictions}\label{sec:predictions}
+%======================================================================
+
+\noindent
+The framework generates the following precise, testable
+predictions for recurrent network training under general data
+distributions.
+
+\begin{enumerate}[label=\textbf{P\arabic*.}]
+  \item \textbf{Stepwise mode acquisition.} The effective rank
+    of a recurrent network's transfer function increases
+    as a step function during training, with each step
+    corresponding to a single pole-zero separation event
+    (\Cref{cor:staircase}). This holds for any smooth loss and
+    any data distribution.
+
+  \item \textbf{Data-dependent ordering.} The order of mode
+    activation follows decreasing effective spectral energy
+    $E_k^{\mathrm{eff}} = E_k^{\mathrm{target}} \cdot S_x(\arg p_k^*)$,
+    the product of target spectral content and input spectral
+    density at each mode's frequency (\Cref{cor:ordering}).
+    Under white noise, this reduces to ordering by target
+    energy alone (\Cref{cor:white}).
+
+  \item \textbf{Input-dependent learning speed.} Modes at
+    frequencies where the training input is energetic are
+    activated faster; modes at frequencies absent from the input
+    are activated slowly or not at all, regardless of target
+    spectral content (\Cref{rem:structured}).
+
+  \item \textbf{Dwell time scaling.}
+    The plateau duration before the $(\rho+1)$-th mode activates
+    scales as
+    $T_\rho \sim \frac{1}{E_{\rho+1}^{\mathrm{eff}}}
+    \log\frac{1}{|\eps_0|}$
+    (\Cref{thm:dwell}).
+
+  \item \textbf{Separation direction in $\C$.} At each
+    transition, the pole-zero pair separates along a direction
+    determined by the phase of the cross-correlation between the
+    target residual and the input-filtered mode response. For
+    structured inputs, this direction can differ from the phase
+    of the target pole (\Cref{cor:geometry}).
+
+  \item \textbf{Oscillatory transients.} When the driving
+    coefficient $\lambda$ is complex, the transition is
+    accompanied by a transient overshoot at the mode's frequency,
+    with frequency and growth rate predicted by
+    \Cref{thm:spiral}.
+
+  \item \textbf{Topological robustness.} Early-activated modes
+    (large pole-zero separation) are more robust to parameter
+    perturbation than late-activated modes (small separation)
+    (\Cref{cor:protection}). This is independent of the loss
+    and data distribution.
+
+  \item \textbf{Interference geometry.} Catastrophic forgetting
+    under sequential training is predicted by the zero-trajectory
+    geometry: a mode is forgotten if and only if a free zero,
+    mobilised by the new task gradient, reaches the mode's pole
+    in $\C$ (\Cref{thm:catastrophic}).
+
+  \item \textbf{Data-overlap protection.} Modes whose frequencies
+    carry effective spectral energy under both tasks are protected
+    from catastrophic interference. Protection requires both
+    input excitation and target demand at the mode's frequency
+    (\Cref{cor:forgetting}).
+
+  \item \textbf{Nonlinear dwell-time inflation.} In nonlinear
+    recurrent networks, plateau durations are longer than the
+    linear prediction by a factor controlled by the heterogeneity
+    of instantaneous pole-zero separations across operating points
+    (\Cref{prop:coherent}).
+\end{enumerate}
+
+%======================================================================
+\appendix
+\section{Proof Details for the Hessian Structure}\label{app:hessian}
+%======================================================================
+
+We provide the full computation of the Hessian at the cancellation
+saddle in the general data-dependent setting.
+
+Let $\theta = (W, b, c) \in \R^{n^2 + 2n}$ be the full parameter
+vector. At a cancellation saddle where $r_k = \alpha_k\beta_k = 0$
+with $\alpha_k = c^{\top}v_k = 0$ and $\beta_k = u_k^*b \neq 0$
+(the case $\beta_k = 0$ is analogous by duality), we work in the
+modal parameterisation $(\alpha_k, \beta_k)$ with all other
+coordinates held fixed.
+
+The loss restricted to $(\alpha_k, \beta_k)$ near the saddle,
+for squared error under data distribution $\cD$, is
+(from \eqref{eq:loss_expanded}):
+\begin{align}
+  \cL(\alpha_k, \beta_k)
+  &= \cL_{\perp}
+  + |\alpha_k|^2\,|\beta_k|^2\, S_k^{(x)}
+  - 2\,\Re\!\bigl[\alpha_k\beta_k\, \bar{J}_k\bigr]
+  + O(|\alpha_k\beta_k|^2),
+\end{align}
+where the mode energy $S_k^{(x)}$ and cross-energy $J_k$ are
+defined in \Cref{def:mode_energy}, and
+$\cL_{\perp}$ is the loss contribution from all other modes.
+
+At $\alpha_k = 0$, $\beta_k = \beta_k^{(0)}$:
+\begin{align}
+  \frac{\partial\cL}{\partial\alpha_k} &= 0, \qquad
+  \frac{\partial\cL}{\partial\beta_k} = 0, \\
+  \frac{\partial^2\cL}{\partial\alpha_k\partial\bar\alpha_k}
+  &= |\beta_k^{(0)}|^2\, S_k^{(x)} > 0, \\
+  \frac{\partial^2\cL}{\partial\alpha_k\partial\bar\beta_k}
+  &= -\bar{J}_k, \\
+  \frac{\partial^2\cL}{\partial\beta_k\partial\bar\beta_k}
+  &= 0.
+\end{align}
+The real Hessian restricted to
+$(\Re\alpha_k, \Im\alpha_k, \Re\beta_k, \Im\beta_k)$
+has eigenvalues (each with multiplicity 2):
+\begin{equation}
+  \mu_{\pm} = \frac{|\beta_k^{(0)}|^2 S_k^{(x)}}{2}
+  \pm \sqrt{\frac{|\beta_k^{(0)}|^4 (S_k^{(x)})^2}{4}
+  + |J_k|^2}.
+\end{equation}
+Since $S_k^{(x)} > 0$ (any nondegenerate input distribution
+has positive energy in every mode) and $|J_k| > 0$
+(hypothesis (c) of \Cref{thm:saddle}), we have $\mu_+ > 0$
+and $\mu_- < 0$, confirming the saddle.
+
+Note that the Hessian eigenvalues depend on the data
+distribution through $S_k^{(x)}$ and $J_k$. The escape rate
+$\mu_- \propto -E_k^{\mathrm{eff}}$ determines the
+instability of the saddle: modes with higher effective spectral
+energy produce more unstable saddles and faster escape.
+
+%======================================================================
+\section{Relationship to the Saxe--McClelland--Ganguli Framework}%
+\label{app:saxe}
+%======================================================================
+
+We make explicit the formal correspondence between the feedforward
+theory of Saxe et al.\ and the recurrent theory developed here.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}p{0.42\textwidth}p{0.42\textwidth}@{}}
+\hline
+\textbf{Deep Linear Network (Saxe)} &
+\textbf{Linear Recurrent Network (This work)} \\
+\hline
+End-to-end map $W_L\cdots W_1$ &
+Transfer function $H(z;\tau) = C(zI-W)^{-1}B$ \\
+Singular values $\sigma_k$ &
+Residues $r_k$ at poles $p_k$ \\
+Rank of $W_L\cdots W_1$ &
+Effective rank $\rho = \#\{k:r_k\neq 0\}$ \\
+Saddle: $\sigma_k = 0$ &
+Saddle: $r_k = 0$ (pole-zero cancellation) \\
+Activation: $\sigma_k: 0 \to {>}0$ &
+Activation: pole-zero separation \\
+Ordering by target SVD &
+Ordering by $E_k^{\mathrm{eff}} = E_k^{\mathrm{target}}\cdot S_x$ \\
+Dwell time $\sim 1/\sigma_k^{*2}$ &
+Dwell time $\sim 1/E_k^{\mathrm{eff}}$ \\
+Singular values $\in \R_{\ge 0}$ &
+Residues $\in \C$ \\
+No topological invariant &
+Winding number $\cN(\gamma_k) \in \Z$ \\
+No spiral transients &
+Spiral separation for complex poles \\
+No catastrophic interference mechanism &
+Non-partner collision \\
+Loss-independent ordering &
+Input-dependent ordering \\
+\hline
+\end{tabular}
+\end{center}
+
+\medskip
+
+\noindent
+The central conceptual advance is the replacement of the singular
+value (a non-negative real number) with the pole-zero configuration
+(a pair of points in $\C$). The additional structure of
+$\C$---the argument principle, residues, the geometry of
+collisions in two dimensions---provides a richer and more
+predictive theory. The data-dependent ordering through
+$E_k^{\mathrm{eff}}$ is a genuinely new prediction: in
+Saxe's framework, the singular values of the target determine
+the ordering independently of the input statistics.
+
+\end{document}

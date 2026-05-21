@@ -1,0 +1,19 @@
+[project]
+name = "meromorphic"
+version = "0.0.1"
+description = "NumPy reference implementation for the meromorphic learning dynamics blog post"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "matplotlib>=3.8",
+  "jupyter>=1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

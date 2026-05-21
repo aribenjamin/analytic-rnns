@@ -1,0 +1,30 @@
+{
+  "name": "analytic-rnns-distill",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Distill-style interactive blog post for the meromorphic learning dynamics framework",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.1",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte": "^4.2.18",
+    "svelte-check": "^3.8.4",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4",
+    "vitest": "^2.0.4"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "@types/d3": "^7.4.3",
+    "katex": "^0.16.11",
+    "eigen": "^0.2.0"
+  }
+}

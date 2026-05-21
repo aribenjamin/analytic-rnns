@@ -1,0 +1,71 @@
+/*
+ * Article-level styles. distill-template provides typography, layout grid, and
+ * citation/footnote rendering out of the box; we only add a small set of
+ * overrides and the structural rules for widget slots.
+ */
+
+:root {
+  --widget-bg: #fafafa;
+  --widget-border: #e6e6e6;
+  --accent-pole: #d6604d;       /* warm red for poles */
+  --accent-zero: #4393c3;       /* cool blue for zeros */
+  --accent-target: #b2b2b2;     /* muted grey for ghost targets */
+  --accent-active: #2166ac;     /* used for "active mode" highlights */
+  --accent-silenced: #b8b8b8;   /* used for cancelled modes */
+  --gridline: #ececec;
+  --axis: #888;
+  --text: #111;
+}
+
+d-article p,
+d-article li {
+  color: var(--text);
+  line-height: 1.6;
+}
+
+d-article em {
+  font-style: italic;
+}
+
+d-article strong {
+  font-weight: 600;
+}
+
+.widget-slot {
+  display: block;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--widget-bg);
+  border: 1px solid var(--widget-border);
+  border-radius: 6px;
+  /* On narrow screens, widgets should fall back to vertical layouts.
+     Each widget component is responsible for its own internal responsive layout. */
+  min-height: 320px;
+  position: relative;
+}
+
+.widget-slot[data-empty="true"]::after {
+  content: "widget not yet mounted";
+  display: block;
+  color: #999;
+  font-size: 0.85rem;
+  font-style: italic;
+  text-align: center;
+  padding: 4rem 0;
+}
+
+/* Margins for the article's body width — distill-template handles this, but we
+   pin it to be sure on browsers that miss the cascade. */
+d-article > h2 {
+  margin-top: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Mobile: widget slots become full-bleed. */
+@media (max-width: 720px) {
+  .widget-slot {
+    padding: 0.5rem;
+    margin: 1rem -0.5rem;
+    border-radius: 0;
+  }
+}
