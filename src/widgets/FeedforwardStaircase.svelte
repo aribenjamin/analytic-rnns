@@ -25,6 +25,16 @@
 
   let lossSvg: SVGSVGElement;
   let sigmaSvg: SVGSVGElement;
+  let mathRoot: HTMLDivElement;
+
+  const sigmasFmt = SIGMA_STARS.map((s) => s.toFixed(1)).join(',\\,');
+  const modelMath =
+    'Model: $\\;y = W_2\\, W_1\\, x\\;$ (two-layer linear, no recurrence)';
+  const svdMath =
+    'SVD of the end-to-end map: ' +
+    '$\\;W_2 W_1 \\;=\\; U\\, \\Sigma\\, V^{\\!\\top},\\quad ' +
+    '\\Sigma = \\operatorname{diag}(\\sigma_1^\\star,\\sigma_2^\\star,\\sigma_3^\\star,\\sigma_4^\\star) ' +
+    '= \\operatorname{diag}(' + sigmasFmt + ')$';
   let lossPlot: TimeSeries | null = null;
   let sigmaPlot: TimeSeries | null = null;
 
@@ -109,7 +119,26 @@
     redraw();
   }
 
+  function renderMath(): void {
+    const w = window as unknown as {
+      renderMathInElement?: (el: HTMLElement, opts: unknown) => void;
+    };
+    if (!mathRoot || !w.renderMathInElement) return;
+    w.renderMathInElement(mathRoot, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+      ],
+      throwOnError: false,
+    });
+  }
+
   onMount(() => {
+    if ((window as unknown as { renderMathInElement?: unknown }).renderMathInElement) {
+      renderMath();
+    } else {
+      window.addEventListener('load', renderMath, { once: true });
+    }
     lossPlot = new TimeSeries(lossSvg, {
       xLabel: 'training time τ',
       yLabel: 'loss',
@@ -126,6 +155,11 @@
 </script>
 
 <div class="widget widget--ff-staircase">
+  <div class="widget-banner">non-recurrent &mdash; deep linear feedforward</div>
+  <div class="widget-math" bind:this={mathRoot}>
+    <div class="widget-math-line">{modelMath}</div>
+    <div class="widget-math-line">{svdMath}</div>
+  </div>
   <div class="widget-row widget-row--two">
     <div class="widget-panel">
       <div class="widget-panel-header">loss L(τ)</div>
@@ -188,6 +222,27 @@
     width: 100%;
     height: auto;
     display: block;
+  }
+  .widget-banner {
+    display: inline-block;
+    align-self: flex-start;
+    background: var(--accent-active, #d05a3a);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.6rem;
+    border-radius: 3px;
+    margin-bottom: 0.5rem;
+  }
+  .widget-math {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+  }
+  .widget-math-line + .widget-math-line {
+    margin-top: 0.25rem;
   }
   .widget-controls--row {
     flex-direction: row;
