@@ -1,24 +1,38 @@
 /*
- * Entry point. Mounts each Svelte widget into its <div id="widget-..."> slot
- * in index.html, marks unmounted slots as "coming soon", and wires up the
- * floating TOC's active-section highlight via IntersectionObserver.
+ * Entry point. Auto-discovers every Svelte widget in src/widgets/ via Vite's
+ * `import.meta.glob`, derives its slot id from the filename, and mounts it
+ * into the matching <div id="widget-..."> in index.html.
+ *
+ * Convention: a widget file `Foo.svelte` mounts into `widget-foo` (with
+ * PascalCase → kebab-case). So `TransferFunctionPlayground.svelte` →
+ * `widget-transfer-function-playground`. To add a new widget, drop a file
+ * with the right name and a matching slot in index.html — no edit here.
  */
 
 import { mount } from './lib/mount';
-import TransferFunctionPlayground from './widgets/TransferFunctionPlayground.svelte';
 
 type SvelteWidget = new (...args: any[]) => any;
 
-const widgetRegistry: Record<string, SvelteWidget> = {
-  'widget-transfer-function-playground': TransferFunctionPlayground,
-  // Phase A widgets remaining:
-  // 'widget-feedforward-staircase': FeedforwardStaircase,
-  // 'widget-recurrent-refresher': RecurrentRefresher,
-  // 'widget-eigenvalues-are-not-enough': EigenvaluesAreNotEnough,
-  // 'widget-residue-knob': ResidueKnob,
-  // 'widget-saddle-landscape': SaddleLandscape,
-  // 'widget-decoded-staircase': DecodedStaircase,
-};
+const widgetModules = import.meta.glob<{ default: SvelteWidget }>(
+  './widgets/*.svelte',
+  { eager: true },
+);
+
+function slotIdFromPath(path: string): string {
+  const name = path.split('/').pop()!.replace(/\.svelte$/, '');
+  return (
+    'widget-' +
+    name
+      .replace(/([A-Z])/g, '-$1')
+      .toLowerCase()
+      .replace(/^-/, '')
+  );
+}
+
+const widgetRegistry: Record<string, SvelteWidget> = {};
+for (const [path, mod] of Object.entries(widgetModules)) {
+  widgetRegistry[slotIdFromPath(path)] = mod.default;
+}
 
 for (const [slotId, Component] of Object.entries(widgetRegistry)) {
   mount(slotId, Component);
