@@ -58,7 +58,8 @@
         <li><a href="#sec-transfer" data-toc-target="sec-transfer"><span class="toc-num">3</span>Transfer functions, gently</a></li>
         <li><a href="#sec-residue" data-toc-target="sec-residue"><span class="toc-num">4</span>The residue is a volume knob</a></li>
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">5</span>Cancellation is a saddle</a></li>
-        <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">6</span>The staircase, decoded</a></li>
+        <li><a href="#sec-escape" data-toc-target="sec-escape"><span class="toc-num">6</span>Escape rates and the order of modes</a></li>
+        <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
         <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
@@ -276,29 +277,261 @@
           <p>
             The answer is: <em>saddles are the points in (W, b, c) parameter space where a pole and a 
             zero cancel each other out, making the residue zero.</em>
-            
+<!--             
           You might wonder how we know this even though we haven't yet mentioned the objective function
           or the training data at all. Yet it's just like how
-          we know that new singular values in feedforward networks correspond to modes and saddles, 
-          even though we don't know the data. The specifics of the learning problem instead determine 
-          the order in which the poles and zeros separate and their location.
+          we know that new singular values in feedforward networks correspond to modes and saddles,
+          even though we don't know the data. The specifics of the learning problem instead determine
+          the order in which the poles and zeros separate and their location. -->
 
+        </p>
+
+        <p>
+          The reason comes from the product structure of residues.
+          Recall from § 4 that the residue factorises as
+          $r_k = \alpha_k \beta_k$, where $\alpha_k$ is how strongly
+          the readout $c$ observes mode $k$, and $\beta_k$ is how strongly
+          the input $b$ excites it. The output depends on mode $k$
+          only through this product:
+        </p>
+
+        $$\hat{y}_t \;=\; \alpha_k\,\beta_k\;\phi_k(t)
+          \;+\;\underbrace{\sum_{j \neq k} r_j\,\phi_j(t)}_{\text{other modes}}.$$
+
+        <p>
+          A critical point of the full loss requires the gradient
+          to vanish in <em>every</em> parameter direction — all the
+          $\alpha_j, \beta_j$, and the pole locations $p_j$, for every
+          mode $j$. We are not going to verify all of those at once.
+          Instead we adopt a hunting strategy: look for points where
+          the other modes are <em>already</em> at their own critical
+          points (a one-mode-at-a-time best fit), and check whether
+          $(\alpha_k, \beta_k)$ for some specific mode $k$ is also at
+          a critical point. Anything we find this way is a critical
+          point of the full system.
+        </p>
+
+        <p>
+          So fix the other modes at their critical-point values
+          (whatever those are — the data picks them) and restrict to
+          the $(\alpha_k, \beta_k)$ subspace. The squared-error loss
+          becomes
+        </p>
+
+        $$\mathcal{L}(\alpha_k,\,\beta_k)
+          \;=\; \tfrac{1}{2}\bigl\|r_k^{\ast} - \alpha_k\,\beta_k\bigr\|^2
+          \;+\;\text{const},$$
+
+        <p>
+          where $r_k^{\ast}$ stands for the <em>target residue</em> — a
+          single number summarising what the data wants mode $k$ to be.
+          (We will unpack it properly in § 6; for now read it as "the
+          part of the target signal at mode $k$'s frequency, after
+          subtracting everything the other modes already explain".)
+          This loss is the recurrent analogue of what we see for
+          feedforward networks, where the loss for mode $k$ is
+          $\mathcal{L} = \frac{1}{2}\|\sigma^{\ast} - u\,v\|^2$
+          for a factorised singular value.
+        </p>
+
+        <p>
+          Now check the gradients at the cancellation point
+          $\alpha_k = \beta_k = 0$:
+        </p>
+
+        $$\frac{\partial\mathcal{L}}{\partial\alpha_k}
+          = -\bigl(r_k^{\ast} - \alpha_k\beta_k\bigr)\,\beta_k
+          \;\xrightarrow{\;\alpha_k=\beta_k=0\;}\; 0,$$
+
+        $$\frac{\partial\mathcal{L}}{\partial\beta_k}
+          = -\bigl(r_k^{\ast} - \alpha_k\beta_k\bigr)\,\alpha_k
+          \;\xrightarrow{\;\alpha_k=\beta_k=0\;}\; 0.$$
+
+        <p>
+          Both gradients vanish — it's a critical point. But it's <em>not</em>
+          a minimum. The Hessian at the origin is
+        </p>
+
+        $$H \;=\; \begin{pmatrix}
+          0 & r_k^{\ast} \\[4pt]
+          r_k^{\ast} & 0
+          \end{pmatrix}$$
+
+        <p>
+          with eigenvalues $\pm\, r_k^{\ast}$ — one positive, one negative.
+          The loss surface is a hyperbolic paraboloid in
+          $(\alpha_k, \beta_k)$, with the unstable direction along
+          $\alpha_k = +\beta_k$. Learning escapes the saddle along
+          this direction, turning on the mode.
+        </p>
+
+        <p>
+          By construction this is a critical point of the full loss
+          (the other modes were at their critical points, and we just
+          showed $(\alpha_k, \beta_k)$ are too). It is a saddle of the
+          full loss as long as the other modes were at minima of their
+          restricted losses, which they generically are. So the
+          hunting strategy works: <em>every cancellation point
+          $r_k = 0$ — with the other modes at their best-fit values —
+          is a saddle of the full loss landscape.</em>
+        </p>
+
+        <p>
+          What this doesn't tell us is which saddle the dynamics
+          actually visits, or in what order — that is the dynamical
+          question, and we take it up next.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
       </section>
 
-      <section id="sec-staircase" class="article-section">
+      <section id="sec-escape" class="article-section">
         <p class="section-number">§ 6</p>
+        <h2>Escape rates and the order of modes</h2>
+
+        <p>
+          We have a saddle at $\alpha_k = \beta_k = 0$ for every mode.
+          The dynamical question is: starting from a tiny perturbation,
+          how fast does each mode escape? The fastest mode wins the
+          race and sets the first step of the staircase.
+        </p>
+
+        <p>
+          We start from the restricted loss in $(\alpha_k, \beta_k)$.
+          Writing $\Delta_t = y_t - \sum_{j \neq k} r_j\,\phi_j(t)$ for
+          the residual that the other modes leave behind, and expanding
+          the squared error, the loss is
+        </p>
+
+        $$\mathcal{L}(\alpha_k,\beta_k) \;=\; \mathcal{L}_{\perp}
+          \;-\; J_k\,\alpha_k\beta_k
+          \;+\; \tfrac{1}{2}\,S_k^{(x)}\,(\alpha_k\beta_k)^2,$$
+
+        <p>
+          where two data-dependent constants have appeared:
+        </p>
+
+        <ul>
+          <li>
+            $J_k \;=\; \mathbb{E}\!\left[\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_k(t)\right]$
+            is the <em>cross-energy</em>: the projection of the
+            unexplained residual onto mode $k$'s response. It measures
+            how much of the target this mode could still pick up.
+            Roughly: target spectral content at mode $k$'s frequency,
+            weighted by how strongly the input excites that frequency.
+          </li>
+          <li>
+            $S_k^{(x)} \;=\; \mathbb{E}\!\left[\tfrac{1}{T}\textstyle\sum_t |\phi_k(t)|^2\right]$
+            is the <em>input energy</em> at mode $k$: how loudly the
+            input drives this mode under the data distribution.
+          </li>
+        </ul>
+
+        <p>
+          The role of $r_k^{\ast}$ in § 5 was a stand-in for $J_k$
+          (with $S_k^{(x)}$ folded in by a choice of normalisation).
+          Now we keep them separate.
+        </p>
+
+        <p>
+          Gradient flow gives $\dot\alpha_k = -\partial\mathcal{L}/\partial\alpha_k$
+          and $\dot\beta_k = -\partial\mathcal{L}/\partial\beta_k$:
+        </p>
+
+        $$\dot\alpha_k \;=\; J_k\,\beta_k \;-\; S_k^{(x)}\,\alpha_k\beta_k^{2},$$
+
+        $$\dot\beta_k \;=\; J_k\,\alpha_k \;-\; S_k^{(x)}\,\alpha_k^{2}\beta_k.$$
+
+        <p>
+          Near the origin the cubic terms are higher-order; the linearisation is
+        </p>
+
+        $$\begin{pmatrix}\dot\alpha_k \\ \dot\beta_k\end{pmatrix}
+          \;=\;
+          \begin{pmatrix} 0 & J_k \\ J_k & 0 \end{pmatrix}
+          \begin{pmatrix}\alpha_k \\ \beta_k\end{pmatrix}.$$
+
+        <p>
+          The eigenvalues are $\pm J_k$, with eigenvectors $\alpha_k = +\beta_k$
+          (unstable, rate $+J_k$) and $\alpha_k = -\beta_k$ (stable, rate
+          $-J_k$). A perturbation of size $\epsilon_0$ along the unstable
+          direction grows as
+        </p>
+
+        $$\epsilon(\tau) \;=\; \epsilon_0\,e^{\,|J_k|\,\tau},$$
+
+        <p>
+          and the saturation only kicks in once $\alpha_k\beta_k$
+          approaches $J_k/S_k^{(x)}$ — which, looking back at the loss,
+          is the location of the new minimum. So mode $k$ escapes its
+          saddle at rate $|J_k|$ and settles at residue
+          $r_k = J_k / S_k^{(x)}$.
+        </p>
+
+        <p>
+          The dwell time near the rank-$\rho$ saddle — the time from
+          entering an $\epsilon$-ball of radius $\epsilon_0$ until the
+          next mode's perturbation grows to size $\epsilon_{\mathrm{exit}}$ —
+          is
+        </p>
+
+        $$T_{\rho} \;=\; \frac{1}{|J_{\rho+1}|}\,
+          \log\!\frac{\epsilon_{\mathrm{exit}}}{\epsilon_0}.$$
+
+        <p>
+          So the order is set by the cross-energies $|J_k|$, and the
+          gaps between $|J_k|$ for different modes determine how clean
+          the staircase looks. Two modes with similar $|J_k|$ activate
+          almost simultaneously and blur their steps; well-separated
+          $|J_k|$ give sharp, well-spaced steps.
+        </p>
+
+        <p>
+          Two consequences worth noting:
+        </p>
+
+        <ul>
+          <li>
+            <strong>The input distribution reshapes the ordering.</strong>
+            $J_k$ folds in input energy at mode $k$'s frequency. A mode
+            at a frequency where the input is weak has a small $J_k$
+            and a long dwell time, even if the target has a lot of
+            content there. Modes the network <em>can't hear</em> are
+            learned last (or never).
+          </li>
+          <li>
+            <strong>The staircase has logarithmic-in-initialisation
+            timing.</strong> The dwell time depends on $\log(1/\epsilon_0)$:
+            smaller initialisation means longer plateaus, not unboundedly
+            so — the dependence is logarithmic. This is the standard
+            saddle-to-saddle scaling.<sup class="cite"><a href="#ref-jacot2021">4</a></sup>
+          </li>
+        </ul>
+
+        <p>
+          A subtlety we have glossed: the above linearisation lives in
+          the $(\alpha_k, \beta_k)$ coordinates, with all other modal
+          coordinates held fixed. The full system has $(W, b, c)$ as
+          parameters, and the natural metric on this space differs from
+          the flat metric on $(\alpha_k, \beta_k)$ by smooth factors
+          involving the eigenvector geometry of $W$. These factors are
+          $O(1)$ at generic saddles and rescale $|J_k|$ by a
+          mode-dependent constant — they do not change the ordering or
+          the logarithmic scaling.<sup class="cite"><a href="#ref-zhang2026">6</a></sup>
+        </p>
+      </section>
+
+      <section id="sec-staircase" class="article-section">
+        <p class="section-number">§ 7</p>
         <h2>The staircase, decoded</h2>
 
         <p>
           Train a small recurrent network on a multi-frequency target, and
           the loss descends in steps. Each step is one pole–zero pair
           separating in the complex plane. The order in which the pairs
-          separate is determined by the <em>effective spectral
-          energy</em> of each mode — the product of the target's spectral
-          content and the input's spectral density at the mode's frequency.
+          separate is set by the cross-energies $|J_k|$ from § 6 — the
+          product of the target's spectral content at each mode's
+          frequency and the input's energy there.
         </p>
 
         <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
@@ -337,6 +570,13 @@
           </li>
           <li id="ref-kailath1980">
             T. Kailath. <em>Linear Systems.</em> Prentice-Hall (1980).
+          </li>
+          <li id="ref-zhang2026">
+            Y. Zhang, A. Saxe &amp; P. E. Latham.
+            <em>Saddle-to-saddle dynamics explains a simplicity bias across
+            neural network architectures.</em> International Conference on
+            Learning Representations (2026).
+            <a href="https://arxiv.org/abs/2512.20607">arXiv:2512.20607</a>.
           </li>
         </ol>
       </section>
