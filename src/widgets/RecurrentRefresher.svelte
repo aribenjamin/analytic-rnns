@@ -80,7 +80,7 @@
 <div class="widget widget--recurrent">
   <div class="widget-panel widget-panel--schematic">
     <div class="widget-panel-header">the network we mean</div>
-    <svg class="schematic-svg" viewBox="0 0 600 170" preserveAspectRatio="xMidYMid meet">
+    <svg class="schematic-svg" viewBox="0 -10 600 180" preserveAspectRatio="xMidYMid meet">
       <defs>
         <marker
           id="rr-arrow"
@@ -111,27 +111,27 @@
 
       <path
         class="schematic-recur"
-        d="M 270 57 C 250 3, 350 3, 330 57"
+        d="M 270 50 C 250 -4, 350 -4, 330 50"
         fill="none"
         stroke="var(--accent-pole)"
         stroke-width="1.6"
         marker-end="url(#rr-arrow-recur)"
       />
-      <text x="300" y="9" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="15" fill="var(--accent-pole)">W</text>
+      <text x="300" y="2" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="15" fill="var(--accent-pole)">W</text>
 
       <circle cx="100" cy="92"  r="13" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
       <text x="100" y="97" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">x</text>
       <text x="100" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">input</text>
 
       <g class="schematic-hidden">
-        <circle cx="300" cy="87" r="42" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <circle cx="284" cy="71" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="312" cy="73" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="298" cy="87" r="4.5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3" />
-        <circle cx="318" cy="93" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="282" cy="97" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="302" cy="107" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <text x="300" y="87" text-anchor="middle" dy="-30" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
+        <circle cx="300" cy="80" r="42" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
+        <circle cx="284" cy="64" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="312" cy="66" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="298" cy="80" r="4.5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3" />
+        <circle cx="318" cy="86" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="282" cy="90" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="302" cy="100" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <text x="300" y="80" text-anchor="middle" dy="-30" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
         <text x="300" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">n neurons</text>
       </g>
 
