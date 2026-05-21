@@ -24,6 +24,15 @@ Produces a static site in `dist/`. The included GitHub Action
 (`.github/workflows/deploy.yml`) handles this on every push to `main` and
 publishes to the `gh-pages` branch.
 
+## Deploying
+
+Pushes to `main` are auto-built by `.github/workflows/deploy.yml` and published
+to the `gh-pages` branch — `VITE_BASE_PATH` is derived from the repository name
+at build time, and a `.nojekyll` marker is added so GitHub Pages serves the
+Vite assets directly. On the first run, enable Pages once in the repository
+settings (**Settings → Pages → Source: Deploy from a branch → `gh-pages` /
+`(root)`**). Subsequent pushes redeploy automatically.
+
 ## Layout
 
 ```
