@@ -131,7 +131,7 @@
         <circle cx="318" cy="86" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
         <circle cx="282" cy="90" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
         <circle cx="302" cy="100" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <text x="300" y="80" text-anchor="middle" dy="-30" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
+        <text x="300" y="80" text-anchor="middle" dy="-25" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
         <text x="300" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">n neurons</text>
       </g>
 
