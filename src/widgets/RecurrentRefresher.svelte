@@ -108,52 +108,41 @@
         </marker>
       </defs>
 
-      <g class="schematic-fanin">
-        <line x1="100" y1="92" x2="248" y2="36"  stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="100" y1="92" x2="248" y2="66"  stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="100" y1="92" x2="248" y2="92"  stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#rr-arrow)" />
-        <line x1="100" y1="92" x2="248" y2="118" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="100" y1="92" x2="248" y2="148" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-      </g>
-
-      <g class="schematic-fanout">
-        <line x1="352" y1="36"  x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="352" y1="66"  x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="352" y1="92"  x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#rr-arrow)" />
-        <line x1="352" y1="118" x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-        <line x1="352" y1="148" x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1" opacity="0.55" />
-      </g>
+      <line x1="100" y1="92" x2="258" y2="92" stroke="var(--text-muted)" stroke-width="1.6" marker-end="url(#rr-arrow)" />
+      <line x1="342" y1="92" x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1.6" marker-end="url(#rr-arrow)" />
 
       <path
         class="schematic-recur"
-        d="M 300 16 C 250 -20, 200 30, 250 70"
+        d="M 270 62 C 250 8, 350 8, 330 62"
         fill="none"
         stroke="var(--accent-pole)"
         stroke-width="1.6"
         marker-end="url(#rr-arrow-recur)"
       />
-      <text x="220" y="14" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--accent-pole)">W</text>
+      <text x="300" y="14" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="15" fill="var(--accent-pole)">W</text>
 
-      <circle cx="100" cy="92"  r="11" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
-      <text x="100" y="96" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="13" fill="var(--text)">x</text>
-      <text x="100" y="135" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">input</text>
+      <circle cx="100" cy="92"  r="13" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
+      <text x="100" y="97" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">x</text>
+      <text x="100" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">input</text>
 
       <g class="schematic-hidden">
-        <circle cx="300" cy="36"  r="9" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <circle cx="300" cy="66"  r="9" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <circle cx="300" cy="92"  r="9" fill="var(--accent-soft)" stroke="var(--accent)"     stroke-width="1.6" />
-        <circle cx="300" cy="118" r="9" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <circle cx="300" cy="148" r="9" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <text x="270" y="96" text-anchor="end" font-family="var(--font-serif)" font-style="italic" font-size="13" fill="var(--text)">h</text>
-        <text x="330" y="148" font-family="var(--font-sans)" font-size="10" fill="var(--text-faint)">n neurons</text>
+        <circle cx="300" cy="92" r="42" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
+        <circle cx="284" cy="76" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="312" cy="78" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="298" cy="92" r="4.5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3" />
+        <circle cx="318" cy="98" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="282" cy="102" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <circle cx="302" cy="112" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
+        <text x="300" y="92" text-anchor="middle" dy="-30" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
+        <text x="300" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">n neurons</text>
       </g>
 
-      <circle cx="500" cy="92" r="11" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
-      <text x="500" y="96" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="13" fill="var(--text)">y</text>
-      <text x="500" y="135" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">readout</text>
+      <circle cx="500" cy="92" r="13" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
+      <text x="500" y="97" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">y</text>
+      <text x="500" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">readout</text>
 
-      <text x="174" y="78" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="13" fill="var(--text-soft)">b</text>
-      <text x="426" y="78" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="13" fill="var(--text-soft)">c<tspan baseline-shift="super" font-size="9">⊤</tspan></text>
+      <text x="179" y="82" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text-soft)">b</text>
+      <text x="421" y="82" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text-soft)">c<tspan baseline-shift="super" font-size="10">⊤</tspan></text>
     </svg>
     <p class="schematic-caption">
       Input <em>x<sub>t</sub></em> drives the recurrent population
