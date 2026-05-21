@@ -470,15 +470,15 @@ strong {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Footnotes (<d-footnote>)
+ * Popup notes (<d-popup>)
  * ───────────────────────────────────────────────────────────────────────── */
 
-d-footnote {
+d-popup {
   position: relative;
   cursor: default;
 }
 
-d-footnote .fn-marker {
+d-popup .fn-marker {
   font-family: var(--font-sans);
   font-size: 0.65em;
   font-weight: 500;
@@ -489,11 +489,11 @@ d-footnote .fn-marker {
   padding: 0 1px;
 }
 
-d-footnote .fn-marker:hover {
+d-popup .fn-marker:hover {
   text-decoration: underline;
 }
 
-d-footnote .fn-content {
+d-popup .fn-content {
   display: none;
   position: absolute;
   left: 0;
@@ -514,7 +514,7 @@ d-footnote .fn-content {
   z-index: 100;
 }
 
-d-footnote .fn-content::after {
+d-popup .fn-content::after {
   content: '';
   position: absolute;
   bottom: -6px;
@@ -527,22 +527,99 @@ d-footnote .fn-content::after {
   transform: rotate(45deg);
 }
 
-d-footnote.fn-open .fn-content {
+d-popup.fn-open .fn-content {
   display: block;
 }
 
-d-footnote.fn-flip .fn-content {
+d-popup.fn-flip .fn-content {
   bottom: auto;
   top: calc(100% + 6px);
 }
 
-d-footnote.fn-flip .fn-content::after {
+d-popup.fn-flip .fn-content::after {
   bottom: auto;
   top: -6px;
   border-right: none;
   border-bottom: none;
   border-left: 1px solid var(--rule);
   border-top: 1px solid var(--rule);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Footnotes (<d-footnote>) — real bottom-of-article footnotes
+ * ───────────────────────────────────────────────────────────────────────── */
+
+d-footnote {
+  display: inline;
+}
+
+d-footnote .fn-inline-marker {
+  font-family: var(--font-sans);
+  font-size: 0.65em;
+  font-weight: 500;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0 1px;
+  text-decoration: none;
+  border: none;
+}
+
+d-footnote .fn-inline-marker:hover {
+  text-decoration: underline;
+  background: transparent;
+}
+
+.d-footnote-list {
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+  list-style: none;
+  padding-left: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+
+.d-footnote-list li {
+  margin-bottom: var(--space-3);
+  padding-left: 2.2em;
+  position: relative;
+}
+
+.d-footnote-list li::before {
+  content: attr(data-fn-num) ".";
+  position: absolute;
+  left: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  top: 1px;
+}
+
+.d-footnote-list li:target {
+  background: var(--accent-soft);
+  border-radius: 3px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  margin-left: -6px;
+  padding-left: calc(2.2em + 6px);
+}
+
+.d-footnote-list .fn-backref {
+  font-size: 0.85em;
+  margin-left: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  border: none;
+}
+
+.d-footnote-list .fn-backref:hover {
+  text-decoration: underline;
+  background: transparent;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
