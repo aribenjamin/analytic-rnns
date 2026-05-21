@@ -494,6 +494,41 @@ strong {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+ * Citations and references
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.cite {
+  font-family: var(--font-sans);
+  font-size: 0.72em;
+  line-height: 0;
+  margin-left: 1px;
+}
+.cite a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.cite a:hover {
+  text-decoration: underline;
+}
+
+.references-list {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-soft);
+  padding-left: 1.4em;
+}
+.references-list li {
+  margin-bottom: var(--space-3);
+}
+.references-list li:target {
+  background: var(--accent-soft);
+  border-radius: 3px;
+  padding: 2px 6px;
+  margin-left: -6px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
  * Mobile and reduced-motion
  * ───────────────────────────────────────────────────────────────────────── */
 

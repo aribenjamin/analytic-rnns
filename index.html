@@ -60,6 +60,7 @@
         <li><a href="#sec-residue" data-toc-target="sec-residue"><span class="toc-num">5</span>The residue is a volume knob</a></li>
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">6</span>Cancellation is a saddle</a></li>
         <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
+        <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
 
@@ -69,36 +70,37 @@
         <h2>Modes are how networks learn</h2>
 
         <p class="lede">
-          A fantastic way to understand why deep neural networks work is to look 
-          at their learning dynamics -- what they learn first, and in what order.
-          These dynamical 'preferences' dictate the functions a network learns in a 
-          given amount of time. Since we never have infinite data,
-          the dynamics dictate the inductive bias of the final network. 
+          It is often intuited that deep networks learn "simple things first". 
+          But what a "simple" hypothesis?
           </p>
 
         <p>
-          It is often intuited that deep networks learn "simple things first". 
-          But what a "simple" hypothesis? We can learn exactly what these are
-          by making precise statements about what is learned first. 
+           We can learn exactly what a network thinks is "simple"
+          by making precise statements about what is learned first.
+          Since we never learn for infinite intes,
+          these dynamical learning trajectories dictate the inductive bias of trained networks. 
         </p>
         <p>
           For example, if you train a deep linear network with a small initialization on a structured target, the loss
-          does not glide smoothly to zero. It drops in <em>steps</em>. 
-          Each cliff is the 'aha' moment associated with the learning of a new 'mode' of the target. 
-          In deep linear networks, we can say exactly what these modes are: the singular directions 
-          of the input-output correlation matrix. If your task is, say, to encode natural images,
-          the first mode will be the dominant principal component of the image dataset, 
-          and the learning dynamics of gradient descent act learn low spatial frequencies first.
-        </p>
-
-        <p>
-          The lab of Andrew Saxe recently distilled this already-beautiful picture into a more general 
-          picture applicable to other settings. You can picture the dynamics of learning as a staircase, 
-          where each step is a saddle point in the loss landscape. We see 'saddle-to-saddle' dynamics.
-          Each mode of our learning progression is associated with a saddle in the landscape.
+          does not glide smoothly to zero. It drops in <em>steps</em>.<sup class="cite"><a href="#ref-saxe2014">1</a></sup>
+          Each cliff is the 'aha' moment associated with the learning of a new 'mode' of the target.
+          In deep linear networks, we can say exactly what these modes are: the singular directions
+          of the input-output correlation matrix.<sup class="cite"><a href="#ref-saxe2019">2</a></sup>
+          If your task is, say, to encode natural images,
+          the first mode will be the dominant principal component of the image dataset,
+          and the learning dynamics of gradient descent learn low spatial frequencies first.<sup class="cite"><a href="#ref-benjamin2022">3</a></sup>
         </p>
 
         <div id="widget-feedforward-staircase" class="widget-slot widget-l-middle"></div>
+
+        <p>
+          The lab of Andrew Saxe recently distilled this already-beautiful picture into a more general
+          picture applicable to other settings.<sup class="cite"><a href="#ref-saxe2019">2</a></sup>
+          You can picture the dynamics of learning as a staircase,
+          where each step is a saddle point in the loss landscape. We see 'saddle-to-saddle' dynamics.<sup class="cite"><a href="#ref-jacot2021">4</a></sup>
+          Each mode of our learning progression is associated with a saddle in the landscape.
+        </p>
+
       </section>
 
       <section id="sec-recurrent" class="article-section">
@@ -159,8 +161,8 @@
         </div>
 
         <p>
-          $H(z)$ is a rational function of a complex variable $z$. Its
-          <strong>poles</strong> are the eigenvalues of $W$ — the locations
+          $H(z)$ is a rational function of a complex variable $z$.<sup class="cite"><a href="#ref-kailath1980">5</a></sup>
+          Its <strong>poles</strong> are the eigenvalues of $W$ — the locations
           in $\mathbb{C}$ where the system rings. But the numerator
           polynomial contributes its own roots, the <strong>zeros</strong>,
           and those zeros are what's missing from a pure eigenvalue
@@ -244,6 +246,42 @@
           singular direction, and in recurrent networks it is a pole–zero
           pair whose residue is climbing away from zero.
         </p>
+      </section>
+
+      <section id="sec-references" class="article-section">
+        <p class="section-number">references</p>
+        <h2>References</h2>
+        <ol class="references-list">
+          <li id="ref-saxe2014">
+            A. M. Saxe, J. L. McClelland &amp; S. Ganguli.
+            <em>Exact solutions to the nonlinear dynamics of learning in deep
+            linear neural networks.</em> International Conference on Learning
+            Representations (2014).
+            <a href="https://arxiv.org/abs/1312.6120">arXiv:1312.6120</a>.
+          </li>
+          <li id="ref-saxe2019">
+            A. M. Saxe, J. L. McClelland &amp; S. Ganguli.
+            <em>A mathematical theory of semantic development in deep neural
+            networks.</em> Proc. Natl. Acad. Sci. USA <strong>116</strong>(23),
+            11537–11546 (2019).
+            <a href="https://doi.org/10.1073/pnas.1820226116">doi:10.1073/pnas.1820226116</a>.
+          </li>
+          <li id="ref-benjamin2022">
+            A. S. Benjamin, L.-Q. Zhang, C. Qiu, A. A. Stocker &amp; K. P. Kording.
+            <em>Efficient neural codes naturally emerge through gradient descent
+            learning.</em> Nature Communications <strong>13</strong>, 7972 (2022).
+            <a href="https://doi.org/10.1038/s41467-022-35659-7">doi:10.1038/s41467-022-35659-7</a>.
+          </li>
+          <li id="ref-jacot2021">
+            A. Jacot, F. Ged, B. Şimşek, C. Hongler &amp; F. Gabriel.
+            <em>Saddle-to-saddle dynamics in deep linear networks: Small
+            initialization training, symmetry, and sparsity.</em>
+            <a href="https://arxiv.org/abs/2106.15933">arXiv:2106.15933</a> (2021).
+          </li>
+          <li id="ref-kailath1980">
+            T. Kailath. <em>Linear Systems.</em> Prentice-Hall (1980).
+          </li>
+        </ol>
       </section>
     </article>
 
