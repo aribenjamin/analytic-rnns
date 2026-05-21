@@ -107,10 +107,8 @@
         <h2>What are the dynamics of learning in recurrent networks?</h2>
 
         <p>
-          That picture was developed for <em>feedforward</em> networks, where
-          the end-to-end map is a product of weight matrices and the natural
-          decomposition is the singular-value decomposition. Yet a neuroscientist's
-          everyday network has memory: a recurrent population
+          A neuroscientist's
+          everyday network model has memory: a recurrent population
           $h_t \in \mathbb{R}^n$ driven by a scalar input $x_t$ and read out
           as a scalar $y_t$,
         </p>
@@ -120,12 +118,27 @@
         </div>
 
         <p>
-          What is the analogue of an SVD here? The first guess is the
-          eigendecomposition of $W$. Its eigenvalues already feel like the
-          right object — they tell you the network's decay rates and natural
-          frequencies, the resonances any input will excite. That guess is
-          wrong, and the gap between eigenvalues and "what actually happens"
-          is where the rest of this essay lives.
+          The saddle-to-saddle picture of learning gives us a recipe. To 
+          understand the learning dynamics of this system, we must
+          find the saddles and the modes that emerge when a saddle is passed.
+          So what are they?
+        </p>
+
+        <p>
+          What is the analogue of an SVD here? Your first guess may be the
+          eigendecomposition of $W$. This is already a step up: whereas 
+          singular values are nonnegative real numbers, eigenvalues are complex numbers, 
+          and the complex plane is a much richer canvas for learning dynamics to paint on. 
+          However, eigenvalues are not quite the object we're looking for.
+        </p>
+
+          <p>
+          What we will find below is that the saddles of the loss landscape are actually
+          interpretable as <em>cancellations between poles and zeros of the I/O transfer function</em>, 
+          and learning new modes correspond to new pole-zero pairs emerging from the same location in the complex plane. 
+
+          The rest of this post is an introduction to what that sentence means, and an exploration of 
+          how we can use it to understand the learning dynamics of recurrent networks.
         </p>
 
         <div id="widget-recurrent-refresher" class="widget-slot widget-l-middle"></div>
@@ -133,16 +146,12 @@
 
       <section id="sec-transfer" class="article-section">
         <p class="section-number">§ 3</p>
-        <h2>Transfer functions, gently</h2>
+        <h2>Introducing the transfer function</h2>
 
         <p>
           When we ask "what has the network learned?" we really mean: what
           map does it implement from the input stream $\{x_t\}$ to the
-          output stream $\{y_t\}$? The particular triple $(W, b, c)$ is one
-          parameterisation among many — any change of basis on the hidden
-          state yields a different triple that implements the same I/O
-          behaviour. We want a description of <em>that</em> map, not of one
-          arbitrary realisation of it.
+          output stream $\{y_t\}$? What describes the input/output behavior?
         </p>
 
         <p>
@@ -176,16 +185,23 @@
         <p>
           one term per <em>mode</em> of $W$. Each mode rings as a pure
           exponential of decay rate $|p_k|$ and angular frequency
-          $\arg(p_k)$, weighted by the <strong>residue</strong> $r_k$. What
-          determines $r_k$ is the next section's question; the punchline
-          here is that the a-priori infinite sequence $\{g_s\}$ is
-          completely determined by just $n$ pole–residue pairs in
-          $\mathbb{C}$.
+          $\arg(p_k)$, weighted by the <strong>residue</strong>
+          $r_k = (c^\top v_k)(u_k^\top b)$, the product of how
+          strongly the input excites mode $k$ and how strongly the
+          readout listens to it. 
         </p>
 
         <p>
-          Packaging $\{g_s\}$ into a generating function (the
-          $z$-transform) gives the
+          What we'd really love is a clean description of the output stream
+          that doesn't depend on an infinite series of terms going back to the 
+          beginning of time. We'd like a single finite expression that <em>is</em>
+          the I/O map, with no time index left in it.
+          It turns out there's a trick. We can sum up the contribution
+          of mode $k$ from all timepoints in the past via a dummy variable
+          $z^{-1}$ for each time lag: $\sum_s r_k p_k^s z^{-s}$. Because
+          this is a geometric series, it sums in closed form — just the way
+          $1 + r + r^2 + \cdots = 1/(1-r)$ — collapsing to a single
+          fraction. Adding $n$ modes gives the
           <strong>transfer function</strong>,<sup class="cite"><a href="#ref-kailath1980">5</a></sup>
         </p>
 
@@ -195,24 +211,19 @@
         </div>
 
         <p>
-          Both forms matter. The right-hand expression makes the dependence
-          on the parameters $(W, b, c)$ explicit. The partial-fraction sum
-          makes the modal structure explicit: $H(z)$ is a rational function
-          of $z$ whose <strong>poles</strong> are the eigenvalues of $W$,
-          and whose numerator polynomial
-          $c^\top \mathrm{adj}(zI - W)\, b$ contributes its own roots — the
-          <strong>zeros</strong>, at most $n-1$ of them. Poles and zeros
-          together fix $H(z)$ up to overall scale.
+          Look at the left-hand form: $H(z)$ blows up whenever
+          $z - p_k = 0$.
+          These singularities are called <strong>poles</strong>, and they
+          sit exactly at the eigenvalues of $W$. Meanwhile, at certain
+          other values of $z$ the $n$ terms cancel and $H(z) = 0$; these
+          are the <strong>zeros</strong> (there are at most $n-1$ of them).
+          Poles and zeros together fix $H(z)$ up to overall scale — a
+          finite list of marked points in $\mathbb{C}$ that completely
+          describes the I/O map.
         </p>
 
         <p>
-          Two readings of $H(z)$ are worth holding onto. On the unit
-          circle, $z = e^{i\theta}$, the magnitude $|H(e^{i\theta})|$ is
-          the network's steady-state gain at temporal frequency $\theta$ —
-          drive it with a cosine at frequency $\theta$ and the output is a
-          cosine at the same frequency, scaled by $|H(e^{i\theta})|$. Poles
-          near the unit circle make peaks; zeros near it carve notches.
-          Off the unit circle, the broader picture: a finite list of
+          This is the benefit of the transfer function. A finite list of
           marked points in $\mathbb{C}$ — at most $n$ poles and $n-1$
           zeros — is a complete, basis-free summary of what the network
           does to <em>any</em> input, ever.
@@ -232,12 +243,14 @@
 
       <section id="sec-residue" class="article-section">
         <p class="section-number">§ 4</p>
-        <h2>The residue is a volume knob</h2>
+        <h2>The residue is the readout volume knob</h2>
 
         <p>
-          A pole alone is not enough to produce a resonance: it has to be
-          heard. The <em>residue</em> at each pole determines how loudly
-          that mode speaks. When a zero sits directly on top of a pole, the
+          A pole (i.e. eigenvalue of $W$) alone is not enough to produce a resonance: it has to be
+          read out. The <em>residue</em> at each pole determines how loudly
+          that mode speaks to the output. (Think of "null modes" in feedforward networks: 
+          they are directions in which the input is projected but the output isn't read out.)
+          When a zero sits directly on top of a pole, the
           residue is zero and the mode is silent — even though the
           eigenvalue of $W$ is still there. Pulling the zero away activates
           the mode; the residue grows in proportion to the pole–zero
@@ -257,18 +270,19 @@
         <h2>Cancellation is a saddle</h2>
 
         <p>
-          Now reconnect to the opening. The residue factorises as
-          $r_k = \alpha_k \beta_k$, with $\alpha_k = c^\top v_k$ and
-          $\beta_k = u_k^* b$ the observability and controllability
-          coefficients ($v_k$ and $u_k$ are the right and left eigenvectors
-          of $W$ for the $k$-th pole). The loss, written as a function of
-          $(\alpha_k, \beta_k)$ near a cancellation point, has a cross at
-          the origin: a saddle.
+          Let's recall the big question: what are the learning dynamics of recurrent networks?
+          We can suspect that the dynamics will still be saddle-to-saddle. But what are the saddles?
         </p>
+          <p>
+            The answer is: <em>saddles are the points in (W, b, c) parameter space where a pole and a 
+            zero cancel each other out, making the residue zero.</em>
+            
+          You might wonder how we know this even though we haven't yet mentioned the objective function
+          or the training data at all. Yet it's just like how
+          we know that new singular values in feedforward networks correspond to modes and saddles, 
+          even though we don't know the data. The specifics of the learning problem instead determine 
+          the order in which the poles and zeros separate and their location.
 
-        <p>
-          The recurrent staircase has the same origin as the feedforward
-          one. We just had to find the right coordinates.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
@@ -289,12 +303,6 @@
 
         <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
 
-        <p>
-          The Saxe staircase from § 1 was this same phenomenon in disguise.
-          The mode is the unit of learning; in feedforward networks it is a
-          singular direction, and in recurrent networks it is a pole–zero
-          pair whose residue is climbing away from zero.
-        </p>
       </section>
 
       <section id="sec-references" class="article-section">

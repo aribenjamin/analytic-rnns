@@ -34,8 +34,8 @@
     ],
   ];
   let zeroPair: { real: ZeroSpec; conj: ZeroSpec } = {
-    real: { id: 'zero-0', z: { re: 0.2, im: 0.3 }, active: false },
-    conj: { id: 'zero-0-conj', z: { re: 0.2, im: -0.3 }, active: false },
+    real: { id: 'zero-0', z: { re: 0.2, im: 0.3 }, active: true },
+    conj: { id: 'zero-0-conj', z: { re: 0.2, im: -0.3 }, active: true },
   };
 
   let zSvg: SVGSVGElement;

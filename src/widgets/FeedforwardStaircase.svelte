@@ -32,9 +32,7 @@
     'Model: $\\;y = W_2\\, W_1\\, x\\;$ (two-layer linear, no recurrence)';
   const svdMath =
     'SVD of the end-to-end map: ' +
-    '$\\;W_2 W_1 \\;=\\; U\\, \\Sigma\\, V^{\\!\\top},\\quad ' +
-    '\\Sigma = \\operatorname{diag}(\\sigma_1^\\star,\\sigma_2^\\star,\\sigma_3^\\star,\\sigma_4^\\star) ' +
-    '= \\operatorname{diag}(' + sigmasFmt + ')$';
+    '$\\;W_2 W_1 \\;=\\; U\\, \\Sigma\\, V^{\\!\\top}$';
   let lossPlot: TimeSeries | null = null;
   let sigmaPlot: TimeSeries | null = null;
 
@@ -196,7 +194,7 @@
       />
     </label>
     <label>
-      τ<sub>max</sub> = {tauMax.toFixed(1)}
+      τ = {tauMax.toFixed(1)}
       <input
         type="range"
         min={4}
