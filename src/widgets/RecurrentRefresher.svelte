@@ -42,16 +42,25 @@
   let phaseSvg: SVGSVGElement;
   let zPlane: ZPlane | null = null;
   let phaseDraw: PhasePortrait | null = null;
+  let dragged = false;
 
-  function points(): ZPlanePoint[] {
-    return [
-      { id: 'pole-0', z: pole, kind: 'pole' },
-      { id: 'pole-0-conj', z: poleConj, kind: 'pole', draggable: false },
-    ];
-  }
+  // Derive plot inputs as reactive values, not function calls — Svelte 4's
+  // static analyzer doesn't trace into function bodies, so referring to
+  // `pole` only inside `points()` wouldn't make the redraw statement
+  // depend on `pole`.
+  $: zPlanePoints = [
+    { id: 'pole-0', z: pole, kind: 'pole' as const },
+    { id: 'pole-0-conj', z: poleConj, kind: 'pole' as const, draggable: false },
+  ] satisfies ZPlanePoint[];
+
+  $: trajectoryPts = Array.from({ length: T_TRAJ + 1 }, (_, t) => {
+    const rt = Math.pow(r, t);
+    return { x: rt * Math.cos(t * theta), y: rt * Math.sin(t * theta) };
+  });
 
   function onDrag(id: string, z: Complex): void {
     if (id !== 'pole-0') return;
+    dragged = true;
     // Clamp magnitude to [0.05, 1.15] so we can show divergence too
     // without letting the spiral fly off-frame instantly.
     const mag = Math.max(0.05, Math.min(1.15, Math.hypot(z.re, z.im)));
@@ -59,23 +68,12 @@
     pole = { re: mag * Math.cos(ang), im: mag * Math.sin(ang) };
   }
 
-  function trajectory(): { x: number; y: number }[] {
-    const out: { x: number; y: number }[] = new Array(T_TRAJ + 1);
-    for (let t = 0; t <= T_TRAJ; t++) {
-      const rt = Math.pow(r, t);
-      out[t] = { x: rt * Math.cos(t * theta), y: rt * Math.sin(t * theta) };
-    }
-    return out;
-  }
-
-  $: if (zPlane) zPlane.update(points());
-  $: if (phaseDraw) phaseDraw.update(trajectory(), r >= 1);
+  $: zPlane?.update(zPlanePoints);
+  $: phaseDraw?.update(trajectoryPts, r >= 1);
 
   onMount(() => {
     zPlane = new ZPlane(zSvg, { onDrag });
-    zPlane.update(points());
     phaseDraw = new PhasePortrait(phaseSvg, { range: VIEW_RANGE });
-    phaseDraw.update(trajectory(), r >= 1);
   });
 </script>
 
@@ -158,7 +156,12 @@
   <div class="widget-row widget-row--two">
     <div class="widget-panel widget-panel--zplane">
       <div class="widget-panel-header">eigenvalues of W in the complex plane</div>
-      <svg bind:this={zSvg}></svg>
+      <div class="zplane-stage">
+        <svg bind:this={zSvg}></svg>
+        {#if !dragged}
+          <span class="drag-hint">drag me ↗</span>
+        {/if}
+      </div>
     </div>
     <div class="widget-panel widget-panel--phase">
       <div class="widget-panel-header">free-evolution trajectory of h(t)</div>
@@ -223,6 +226,28 @@
 
   .widget-panel--zplane {
     min-width: 0;
+  }
+
+  .zplane-stage {
+    position: relative;
+    width: 100%;
+  }
+
+  .drag-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(58, 47, 30, 0.06);
   }
 
   .widget-panel--schematic {
