@@ -52,6 +52,68 @@ function labelFromId(id: string): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// <d-footnote> custom element: auto-numbered hover/click footnotes.
+// ───────────────────────────────────────────────────────────────────────
+let footnoteCounter = 0;
+
+class DFootnote extends HTMLElement {
+  connectedCallback(): void {
+    footnoteCounter += 1;
+    const num = footnoteCounter;
+
+    const content = this.innerHTML;
+    this.innerHTML = '';
+
+    const marker = document.createElement('span');
+    marker.className = 'fn-marker';
+    marker.textContent = String(num);
+    marker.setAttribute('role', 'button');
+    marker.setAttribute('aria-label', `Footnote ${num}`);
+    marker.tabIndex = 0;
+
+    const popup = document.createElement('span');
+    popup.className = 'fn-content';
+    popup.innerHTML = content;
+
+    this.appendChild(marker);
+    this.appendChild(popup);
+
+    const toggle = (e: Event): void => {
+      e.stopPropagation();
+      const opening = !this.classList.contains('fn-open');
+      document.querySelectorAll('d-footnote.fn-open').forEach((el) =>
+        el.classList.remove('fn-open', 'fn-flip'),
+      );
+      if (opening) {
+        this.classList.add('fn-open');
+        const rect = popup.getBoundingClientRect();
+        if (rect.top < 0) {
+          this.classList.add('fn-flip');
+        }
+      }
+    };
+
+    marker.addEventListener('click', toggle);
+    marker.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle(e);
+      }
+    });
+  }
+}
+
+if (!customElements.get('d-footnote')) {
+  customElements.define('d-footnote', DFootnote);
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('d-footnote.fn-open').forEach((el) =>
+    el.classList.remove('fn-open', 'fn-flip'),
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────
 // Floating TOC: highlight whichever section the reader is currently in.
 // ───────────────────────────────────────────────────────────────────────
 function installTocObserver(): void {
