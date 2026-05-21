@@ -195,110 +195,42 @@
 </script>
 
 <div class="widget widget--tf-playground">
-  <div class="row">
-    <div class="panel panel--zplane">
-      <div class="panel-header">z-plane</div>
-      <svg bind:this={zSvg} class="zplane-svg"></svg>
+  <div class="widget-row widget-row--two">
+    <div class="widget-panel widget-panel--zplane">
+      <div class="widget-panel-header">z-plane</div>
+      <svg bind:this={zSvg}></svg>
     </div>
-    <div class="panel panel--bode">
-      <div class="panel-header">|H(e<sup>iθ</sup>)|: frequency response</div>
-      <svg bind:this={bodeSvg} class="bode-svg"></svg>
+    <div class="widget-panel">
+      <div class="widget-panel-header">|H(e<sup>iθ</sup>)| — frequency response</div>
+      <svg bind:this={bodeSvg}></svg>
     </div>
   </div>
-  <div class="row">
-    <div class="panel panel--impulse">
-      <div class="panel-header">impulse response</div>
-      <svg bind:this={impulseSvg} class="impulse-svg"></svg>
+  <div class="widget-row widget-row--two">
+    <div class="widget-panel">
+      <div class="widget-panel-header">impulse response</div>
+      <svg bind:this={impulseSvg}></svg>
     </div>
-    <div class="controls">
-      <div class="control-group">
-        <button on:click={addPolePair} disabled={polePairs.length >= 3}>+ pole pair</button>
-        <button on:click={removePolePair} disabled={polePairs.length <= 1}>− pole pair</button>
+    <div class="widget-controls">
+      <div class="widget-btn-row">
+        <button class="widget-btn" on:click={addPolePair} disabled={polePairs.length >= 3}>+ pole pair</button>
+        <button class="widget-btn" on:click={removePolePair} disabled={polePairs.length <= 1}>− pole pair</button>
       </div>
-      <label class="control-group">
+      <label>
         <input type="checkbox" checked={zeroPair.real.active} on:change={toggleZero} />
         add a zero pair
       </label>
-      <p class="hint">
-        Drag a pole — the closer it sits to the unit circle, the sharper the resonance peak.
-        Add a zero and drag it onto a pole to silence that mode.
+      <p class="widget-hint">
+        Drag a pole — the closer it sits to the unit circle, the sharper the
+        resonance. Add a zero and drag it onto a pole to silence the mode.
       </p>
     </div>
   </div>
 </div>
 
 <style>
-  .widget--tf-playground {
-    --plot-h: 280px;
-    display: grid;
-    gap: 1rem;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-  .panel {
-    background: white;
-    border-radius: 4px;
-    padding: 0.5rem;
-  }
-  .panel-header {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: #777;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-  }
-  .zplane-svg,
-  .bode-svg,
-  .impulse-svg {
+  .widget--tf-playground svg {
     width: 100%;
-    height: var(--plot-h);
+    height: auto;
     display: block;
-  }
-  .zplane-svg {
-    height: var(--plot-h);
-    aspect-ratio: 1;
-    max-width: var(--plot-h);
-  }
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.75rem;
-  }
-  .control-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-  .control-group button {
-    font-size: 0.85rem;
-    padding: 0.3rem 0.7rem;
-  }
-  .hint {
-    color: #555;
-    font-size: 0.85rem;
-    line-height: 1.4;
-    margin: 0.25rem 0 0;
-  }
-  @media (max-width: 720px) {
-    .row {
-      grid-template-columns: 1fr;
-    }
-    .widget--tf-playground {
-      --plot-h: 220px;
-    }
-  }
-  /* Pole/zero marker styles override the global ones since we set strokes in JS. */
-  :global(.marker-pole .pole-stroke) {
-    stroke: var(--accent-pole);
-    stroke-width: 2;
-  }
-  :global(.marker-zero .zero-marker) {
-    fill: none;
-    stroke: var(--accent-zero);
-    stroke-width: 2;
   }
 </style>

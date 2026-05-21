@@ -63,14 +63,19 @@ export class ZPlane {
   }
 
   private initLayout(): void {
-    const bbox = (this.svg.node() as SVGSVGElement).getBoundingClientRect();
-    this.width = this.opts.width ?? bbox.width ?? 400;
-    this.height = this.opts.height ?? bbox.height ?? this.width;
+    // Use a fixed internal coordinate system. The SVG's actual rendered size
+    // is driven by CSS (typically width:100%), and the viewBox scales it to
+    // fit. This removes any dependency on getBoundingClientRect at mount time,
+    // which was unreliable before CSS layout settled.
+    this.width = this.opts.width ?? 400;
+    this.height = this.opts.height ?? this.width;
     // Square aspect; pick the smaller of width / height.
     const dim = Math.min(this.width, this.height);
     this.width = dim;
     this.height = dim;
-    this.svg.attr('viewBox', `0 0 ${this.width} ${this.height}`);
+    this.svg
+      .attr('viewBox', `0 0 ${this.width} ${this.height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
 
     const margin = 24;
     const inner = this.width - 2 * margin;

@@ -51,10 +51,12 @@ export class BodePlot {
   }
 
   private initLayout(): void {
-    const bbox = (this.svg.node() as SVGSVGElement).getBoundingClientRect();
-    this.width = this.opts.width || bbox.width || 400;
-    this.height = this.opts.height || bbox.height || 200;
-    this.svg.attr('viewBox', `0 0 ${this.width} ${this.height}`);
+    // Fixed internal coordinate system; CSS handles external sizing.
+    this.width = this.opts.width || 600;
+    this.height = this.opts.height || 300;
+    this.svg
+      .attr('viewBox', `0 0 ${this.width} ${this.height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
 
     const m = this.margin;
     this.xScale = d3

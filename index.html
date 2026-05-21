@@ -6,8 +6,13 @@
     <title>Modes, residues, and the meromorphic geometry of recurrent learning</title>
     <meta name="description" content="An interactive guide to saddle-to-saddle learning in recurrent neural networks, via pole-zero geometry in the complex plane." />
 
-    <!-- Distill template (CSS + custom elements only — used for typography, byline, citations, footnotes) -->
-    <script src="https://distill.pub/template.v1.js"></script>
+    <!-- Fonts: Source Serif 4 (body), Inter (headings & UI), JetBrains Mono (code) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- KaTeX for math rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
@@ -18,172 +23,233 @@
         {left: '$', right: '$', display: false},
         {left: '\\\\[', right: '\\\\]', display: true},
         {left: '\\\\(', right: '\\\\)', display: false}
-      ]});"></script>
+      ], throwOnError: false});"></script>
 
     <link rel="stylesheet" href="/src/styles/article.css" />
     <link rel="stylesheet" href="/src/styles/widgets.css" />
   </head>
   <body>
-    <d-front-matter>
-      <script type="text/json">
-        {
-          "title": "Modes, residues, and the meromorphic geometry of recurrent learning",
-          "description": "What replaces singular values when networks have memory? An interactive tour of the pole–zero framework for saddle-to-saddle learning in RNNs.",
-          "authors": [{ "author": "Ari Benjamin", "authorURL": "https://aribenjamin.com" }],
-          "katex": { "delimiters": [
-            {"left": "$$", "right": "$$", "display": true},
-            {"left": "$", "right": "$", "display": false}
-          ] }
-        }
-      </script>
-    </d-front-matter>
+    <header class="article-header l-page">
+      <p class="eyebrow">interactive essay · draft</p>
+      <h1 class="article-title">Understanding the learning dynamics of recurrent neural networks</h1>
+      <p class="article-subtitle">Saddle-to-saddle dynamics underlie many ANN learning processes, and often the saddles are quite interpretable as 'modes' learned one by one. 
+        But what are these modes for recurrent systems? </p>
+      <div class="byline">
+        <div class="byline-author">
+          <span class="byline-label">Author</span>
+          <span class="byline-name">Ari Benjamin</span>
+        </div>
+        <div class="byline-affiliation">
+          <span class="byline-label">Affiliation</span>
+          <span>Cold Spring Harbor Laboratory</span>
+        </div>
+        <div class="byline-date">
+          <span class="byline-label">Draft</span>
+          <span>May 2026</span>
+        </div>
+      </div>
+    </header>
 
-    <d-title>
-      <h1>Modes, residues, and the meromorphic geometry of recurrent learning</h1>
-      <p>What replaces singular values when the network has memory?</p>
-    </d-title>
+    <aside class="toc" id="toc">
+      <p class="toc-label">Contents</p>
+      <ol class="toc-list">
+        <li><a href="#sec-modes" data-toc-target="sec-modes"><span class="toc-num">1</span>Modes are how networks learn</a></li>
+        <li><a href="#sec-recurrent" data-toc-target="sec-recurrent"><span class="toc-num">2</span>Now make it recurrent</a></li>
+        <li><a href="#sec-eigenvalues" data-toc-target="sec-eigenvalues"><span class="toc-num">3</span>Eigenvalues alone aren't enough</a></li>
+        <li><a href="#sec-transfer" data-toc-target="sec-transfer"><span class="toc-num">4</span>Transfer functions, gently</a></li>
+        <li><a href="#sec-residue" data-toc-target="sec-residue"><span class="toc-num">5</span>The residue is a volume knob</a></li>
+        <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">6</span>Cancellation is a saddle</a></li>
+        <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
+      </ol>
+    </aside>
 
-    <d-byline></d-byline>
+    <article class="article">
+      <section id="sec-modes" class="article-section">
+        <p class="section-number">§ 1</p>
+        <h2>Modes are how networks learn</h2>
 
-    <d-article>
-      <!-- ===== §1: Modes are how networks learn ===== -->
-      <h2 id="modes-are-how-networks-learn">Modes are how networks learn</h2>
+        <p class="lede">
+          A fantastic way to understand why deep neural networks work is to look 
+          at their learning dynamics -- what they learn first, and in what order.
+          These dynamical 'preferences' dictate the functions a network learns in a 
+          given amount of time. Since we never have infinite data,
+          the dynamics dictate the inductive bias of the final network. 
+          </p>
 
-      <p>
-        Train a deep linear network on a structured target, and the loss does not glide
-        smoothly to zero. It drops in <em>steps</em>. Each plateau corresponds to the
-        network failing to capture a target direction it has not yet discovered; each
-        cliff is the moment that direction comes online. This is the
-        <a href="#references">saddle-to-saddle picture of learning</a>: the network's
-        gradient flow is dragged toward a sequence of saddle points of the loss, and
-        escapes each one along an unstable direction that switches on a single
-        <em>mode</em>.
-      </p>
+        <p>
+          It is often intuited that deep networks learn "simple things first". 
+          But what a "simple" hypothesis? We can learn exactly what these are
+          by making precise statements about what is learned first. 
+        </p>
+        <p>
+          For example, if you train a deep linear network with a small initialization on a structured target, the loss
+          does not glide smoothly to zero. It drops in <em>steps</em>. 
+          Each cliff is the 'aha' moment associated with the learning of a new 'mode' of the target. 
+          In deep linear networks, we can say exactly what these modes are: the singular directions 
+          of the input-output correlation matrix. If your task is, say, to encode natural images,
+          the first mode will be the dominant principal component of the image dataset, 
+          and the learning dynamics of gradient descent act learn low spatial frequencies first.
+        </p>
 
-      <p>
-        The right abstraction for understanding what a network is doing, in this view,
-        is not the weights themselves but the modes: which ones are alive, which are
-        latent, and which came online when.
-      </p>
+        <p>
+          The lab of Andrew Saxe recently distilled this already-beautiful picture into a more general 
+          picture applicable to other settings. You can picture the dynamics of learning as a staircase, 
+          where each step is a saddle point in the loss landscape. We see 'saddle-to-saddle' dynamics.
+          Each mode of our learning progression is associated with a saddle in the landscape.
+        </p>
 
-      <div id="widget-feedforward-staircase" class="widget-slot"></div>
+        <div id="widget-feedforward-staircase" class="widget-slot widget-l-middle"></div>
+      </section>
 
-      <!-- ===== §2: Now make it recurrent ===== -->
-      <h2 id="now-make-it-recurrent">Now make it recurrent</h2>
+      <section id="sec-recurrent" class="article-section">
+        <p class="section-number">§ 2</p>
+        <h2>What are the dynamics of learning in recurrent networks?</h2>
 
-      <p>
-        That picture was developed for <em>feedforward</em> networks, where the
-        end-to-end map is a product of weight matrices and the natural decomposition is
-        the SVD. A neuroscientist's everyday network has memory: a recurrent population
-        $h_t \in \mathbb{R}^n$ driven by a scalar input $x_t$ and read out as a scalar
-        $y_t$,
-      </p>
+        <p>
+          That picture was developed for <em>feedforward</em> networks, where
+          the end-to-end map is a product of weight matrices and the natural
+          decomposition is the singular-value decomposition. Yet a neuroscientist's
+          everyday network has memory: a recurrent population
+          $h_t \in \mathbb{R}^n$ driven by a scalar input $x_t$ and read out
+          as a scalar $y_t$,
+        </p>
 
-      <d-math block>
-        h_{t+1} = W h_t + b\, x_t, \qquad y_t = c^\top h_t.
-      </d-math>
+        <div class="math-block">
+          $$h_{t+1} = W h_t + b\, x_t, \qquad y_t = c^\top h_t.$$
+        </div>
 
-      <p>
-        What is the analogue of an SVD here? The first guess is the eigendecomposition
-        of $W$. The eigenvalues of $W$ already feel like the right abstraction — they
-        tell you the network's decay constants and natural frequencies, the resonances
-        that any input will excite. That guess is wrong, and the gap between
-        eigenvalues and "what actually happens" is where the rest of this post lives.
-      </p>
+        <p>
+          What is the analogue of an SVD here? The first guess is the
+          eigendecomposition of $W$. Its eigenvalues already feel like the
+          right object — they tell you the network's decay rates and natural
+          frequencies, the resonances any input will excite. That guess is
+          wrong, and the gap between eigenvalues and "what actually happens"
+          is where the rest of this essay lives.
+        </p>
 
-      <div id="widget-recurrent-refresher" class="widget-slot"></div>
+        <div id="widget-recurrent-refresher" class="widget-slot widget-l-middle"></div>
+      </section>
 
-      <!-- ===== §3: Eigenvalues alone aren't enough ===== -->
-      <h2 id="eigenvalues-alone-arent-enough">Eigenvalues alone aren't enough</h2>
+      <section id="sec-eigenvalues" class="article-section">
+        <p class="section-number">§ 3</p>
+        <h2>Eigenvalues alone aren't enough</h2>
 
-      <p>
-        Two recurrent networks with <em>identical</em> $W$ — and therefore identical
-        eigenvalues — can produce completely different outputs from the same input. The
-        eigenvalue spectrum is not the right order parameter for recurrent learning.
-        We need something that knows about $b$ and $c$ too.
-      </p>
+        <p>
+          Two recurrent networks with <em>identical</em> $W$ — and therefore
+          identical eigenvalues — can produce completely different outputs
+          from the same input. The eigenvalue spectrum is not the right order
+          parameter for recurrent learning. We need something that knows about
+          $b$ and $c$ too.
+        </p>
 
-      <div id="widget-eigenvalues-are-not-enough" class="widget-slot"></div>
+        <div id="widget-eigenvalues-are-not-enough" class="widget-slot widget-l-middle"></div>
+      </section>
 
-      <!-- ===== §4: Transfer functions, gently ===== -->
-      <h2 id="transfer-functions-gently">Transfer functions, gently</h2>
+      <section id="sec-transfer" class="article-section">
+        <p class="section-number">§ 4</p>
+        <h2>Transfer functions, gently</h2>
 
-      <p>
-        The compact summary of the entire input–output map of our recurrent network is
-        the <em>transfer function</em>,
-      </p>
+        <p>
+          The compact summary of the entire input–output map of our recurrent
+          network is the <em>transfer function</em>,
+        </p>
 
-      <d-math block>
-        H(z) \;=\; c^\top (zI - W)^{-1} b.
-      </d-math>
+        <div class="math-block">
+          $$H(z) \;=\; c^\top (zI - W)^{-1} b.$$
+        </div>
 
-      <p>
-        $H(z)$ is a rational function of a complex variable $z$. Its <strong>poles</strong>
-        are the eigenvalues of $W$ — the locations in $\mathbb{C}$ where the system rings.
-        But it also has <strong>zeros</strong>: locations in $\mathbb{C}$ where the
-        numerator polynomial vanishes. Drag a pole or a zero in the playground below and
-        watch the frequency response and impulse response update live.
-      </p>
+        <p>
+          $H(z)$ is a rational function of a complex variable $z$. Its
+          <strong>poles</strong> are the eigenvalues of $W$ — the locations
+          in $\mathbb{C}$ where the system rings. But the numerator
+          polynomial contributes its own roots, the <strong>zeros</strong>,
+          and those zeros are what's missing from a pure eigenvalue
+          description. Drag a pole or a zero in the playground below and
+          watch the frequency response and impulse response update live.
+        </p>
 
-      <div id="widget-transfer-function-playground" class="widget-slot"></div>
+        <div id="widget-transfer-function-playground" class="widget-slot widget-l-page"></div>
 
-      <!-- ===== §5: The residue is a volume knob ===== -->
-      <h2 id="the-residue-is-a-volume-knob">The residue is a volume knob</h2>
+        <p class="aside-note">
+          The unit circle in this z-plane plays the role that the imaginary
+          axis plays in continuous-time signal processing. A pole near the
+          unit circle is a slowly-decaying resonance; a pole at the origin
+          is a "memoryless" mode. Where the unit circle passes near a pole,
+          the system rings loudly at that frequency.
+        </p>
+      </section>
 
-      <p>
-        A pole alone is not enough to produce a resonance: it has to be heard. The
-        residue at each pole determines how loudly that mode speaks. When a zero sits
-        directly on top of a pole, the residue is zero and the mode is silent — even
-        though the eigenvalue of $W$ is still there. Pulling the zero away activates
-        the mode; the residue grows linearly with the pole–zero separation.
-      </p>
+      <section id="sec-residue" class="article-section">
+        <p class="section-number">§ 5</p>
+        <h2>The residue is a volume knob</h2>
 
-      <div id="widget-residue-knob" class="widget-slot"></div>
+        <p>
+          A pole alone is not enough to produce a resonance: it has to be
+          heard. The <em>residue</em> at each pole determines how loudly
+          that mode speaks. When a zero sits directly on top of a pole, the
+          residue is zero and the mode is silent — even though the
+          eigenvalue of $W$ is still there. Pulling the zero away activates
+          the mode; the residue grows linearly with the pole–zero
+          separation.
+        </p>
 
-      <!-- ===== §6: Cancellation is a saddle ===== -->
-      <h2 id="cancellation-is-a-saddle">Cancellation is a saddle</h2>
+        <div id="widget-residue-knob" class="widget-slot widget-l-middle"></div>
+      </section>
 
-      <p>
-        Now reconnect to the opening. The residue factorises as $r_k = \alpha_k \beta_k$,
-        with $\alpha_k = c^\top v_k$ and $\beta_k = u_k^* b$ the observability and
-        controllability coefficients (here $v_k$ and $u_k$ are the right and left
-        eigenvectors of $W$ for the $k$-th pole). The loss, written as a function of
-        $(\alpha_k, \beta_k)$ near a cancellation point, has a cross at the origin: a
-        saddle. The recurrent staircase has the same origin as the feedforward one. We
-        just needed to find the right coordinates.
-      </p>
+      <section id="sec-saddle" class="article-section">
+        <p class="section-number">§ 6</p>
+        <h2>Cancellation is a saddle</h2>
 
-      <div id="widget-saddle-landscape" class="widget-slot"></div>
+        <p>
+          Now reconnect to the opening. The residue factorises as
+          $r_k = \alpha_k \beta_k$, with $\alpha_k = c^\top v_k$ and
+          $\beta_k = u_k^* b$ the observability and controllability
+          coefficients ($v_k$ and $u_k$ are the right and left eigenvectors
+          of $W$ for the $k$-th pole). The loss, written as a function of
+          $(\alpha_k, \beta_k)$ near a cancellation point, has a cross at
+          the origin: a saddle.
+        </p>
 
-      <!-- ===== §7: The killer figure: the staircase, decoded ===== -->
-      <h2 id="the-killer-figure-the-staircase-decoded">The killer figure: the staircase, decoded</h2>
+        <p>
+          The recurrent staircase has the same origin as the feedforward
+          one. We just had to find the right coordinates.
+        </p>
 
-      <p>
-        Train a small recurrent network on a multi-frequency target, and the loss
-        descends in steps. Each step is one pole–zero pair separating in the complex
-        plane. The order in which the pairs separate is determined by the
-        <em>effective spectral energy</em> of each mode — the product of the target's
-        spectral content and the input's spectral density at the mode's frequency.
-      </p>
+        <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
+      </section>
 
-      <div id="widget-decoded-staircase" class="widget-slot"></div>
+      <section id="sec-staircase" class="article-section">
+        <p class="section-number">§ 7</p>
+        <h2>The staircase, decoded</h2>
 
-      <p>
-        The Saxe staircase from §1 was this same phenomenon in disguise. The mode is
-        the unit of learning; in feedforward networks it is a singular direction, and
-        in recurrent networks it is a pole–zero pair whose residue is climbing away
-        from zero.
-      </p>
+        <p>
+          Train a small recurrent network on a multi-frequency target, and
+          the loss descends in steps. Each step is one pole–zero pair
+          separating in the complex plane. The order in which the pairs
+          separate is determined by the <em>effective spectral
+          energy</em> of each mode — the product of the target's spectral
+          content and the input's spectral density at the mode's frequency.
+        </p>
 
-      <!-- ===== Phase B/C widget slots (placeholder) ===== -->
-      <!-- §8 argument principle, §9 spirals, §10 catastrophic interference, §11 nonlinear, §12 connections -->
+        <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
 
-    </d-article>
+        <p>
+          The Saxe staircase from § 1 was this same phenomenon in disguise.
+          The mode is the unit of learning; in feedforward networks it is a
+          singular direction, and in recurrent networks it is a pole–zero
+          pair whose residue is climbing away from zero.
+        </p>
+      </section>
+    </article>
 
-    <d-appendix>
-      <h3>References</h3>
-      <d-bibliography src="public/bibliography.bib"></d-bibliography>
-    </d-appendix>
+    <footer class="article-footer">
+      <div class="footer-inner">
+        <p class="footer-note">
+          Draft for review. The figures in §§ 1–3, 5–7 are placeholders pending
+          the next iteration pass. The §4 playground is functional.
+        </p>
+      </div>
+    </footer>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

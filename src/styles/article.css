@@ -1,71 +1,517 @@
 /*
- * Article-level styles. distill-template provides typography, layout grid, and
- * citation/footnote rendering out of the box; we only add a small set of
- * overrides and the structural rules for widget slots.
+ * Article layout, typography, and color.
+ *
+ * We don't depend on distill-template anymore — its CSS uses `dt-*` element
+ * prefixes from the 2017 schema, which collides with the newer `d-*` naming
+ * and never actually applies. Instead we build a Distill-inspired column
+ * system from scratch: a generous body column for prose, wider tiers for
+ * figures, and a sticky left-margin TOC.
+ *
+ * Width tiers (mirrored from Distill's vocabulary):
+ *   .l-body       648 px — body prose column
+ *   .l-middle     816 px — slightly wider, for medium figures
+ *   .l-page       984 px — full content width, for big interactive figures
+ *
+ * Below 1080 px viewport these collapse to a single padded column.
  */
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Tokens
+ * ───────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --widget-bg: #fafafa;
-  --widget-border: #e6e6e6;
-  --accent-pole: #d6604d;       /* warm red for poles */
-  --accent-zero: #4393c3;       /* cool blue for zeros */
-  --accent-target: #b2b2b2;     /* muted grey for ghost targets */
-  --accent-active: #2166ac;     /* used for "active mode" highlights */
-  --accent-silenced: #b8b8b8;   /* used for cancelled modes */
-  --gridline: #ececec;
-  --axis: #888;
-  --text: #111;
+  /* Warm off-white palette — "scientific paper" feel without going stark white. */
+  --bg:                #fbf8f3;
+  --bg-elevated:       #ffffff;
+  --bg-subtle:         #f3ede1;
+  --bg-aside:          #f0e9d8;
+
+  /* Ink. */
+  --text:              #1a1614;
+  --text-soft:         #4a4540;
+  --text-muted:        #7a746c;
+  --text-faint:        #b8b0a3;
+
+  /* Rules and dividers. */
+  --rule:              #e6dfd1;
+  --rule-strong:       #d2c9b6;
+
+  /* Accent: a muted teal-blue that doesn't fight the warm background. */
+  --accent:            #1d5d7a;
+  --accent-hover:      #134456;
+  --accent-soft:       #d8e6ec;
+
+  /* Mode colors (used by widgets — keep in sync with widgets.css). */
+  --accent-pole:       #c0392b;
+  --accent-zero:       #1d6f8d;
+  --accent-active:     #1d5d7a;
+  --accent-target:     #a89c87;
+  --accent-silenced:   #c8c0b3;
+
+  /* Typography. */
+  --font-serif:        'Source Serif 4', 'Source Serif Pro', 'Spectral', Georgia, serif;
+  --font-sans:         'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:         'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Body type scale. */
+  --fs-body:           18px;
+  --lh-body:           1.65;
+  --measure:           648px;
+
+  /* Spacing. */
+  --space-1:           4px;
+  --space-2:           8px;
+  --space-3:           12px;
+  --space-4:           16px;
+  --space-5:           24px;
+  --space-6:           32px;
+  --space-7:           48px;
+  --space-8:           72px;
+  --space-9:           96px;
 }
 
-d-article p,
-d-article li {
+/* ─────────────────────────────────────────────────────────────────────────
+ * Base
+ * ───────────────────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
   color: var(--text);
-  line-height: 1.6;
+  font-family: var(--font-serif);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-d-article em {
+body {
+  /* A subtle paper-grain feel: very faint vertical gradient. */
+  background-image:
+    radial-gradient(ellipse at 50% 0%, #fdfbf6 0%, var(--bg) 70%);
+  background-attachment: fixed;
+}
+
+p {
+  margin: 0 0 1.1em;
+  hanging-punctuation: first allow-end;
+}
+
+p + p {
+  text-indent: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent-hover);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-subtle);
+  padding: 0.08em 0.35em;
+  border-radius: 3px;
+}
+
+em {
   font-style: italic;
 }
 
-d-article strong {
+strong {
   font-weight: 600;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Layout grid: width tiers
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.article > * ,
+.article-header > *,
+.l-body, .l-middle, .l-page {
+  width: 100%;
+  max-width: var(--measure);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+
+@media (min-width: 1080px) {
+  .article > * ,
+  .article-header > *,
+  .l-body {
+    max-width: 648px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .l-middle, .article > .widget-l-middle {
+    max-width: 816px;
+  }
+  .l-page, .article > .widget-l-page, .article-header.l-page {
+    max-width: 984px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Article header
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.article-header {
+  padding-top: var(--space-9);
+  padding-bottom: var(--space-7);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--space-8);
+}
+
+.article-header > * {
+  max-width: 984px;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-5);
+}
+
+.article-title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.12;
+  letter-spacing: -0.012em;
+  margin: 0 0 var(--space-4);
+  color: var(--text);
+  font-feature-settings: "ss01" on, "ss02" on;
+}
+
+.article-subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(18px, 2.4vw, 24px);
+  line-height: 1.35;
+  color: var(--text-soft);
+  margin: 0 0 var(--space-7);
+  max-width: 720px;
+}
+
+.byline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-5);
+  padding-top: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.byline > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.byline-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.byline-name,
+.byline > div > span:nth-child(2) {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Article body
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.article {
+  padding-bottom: var(--space-9);
+}
+
+.article-section {
+  margin-top: var(--space-9);
+}
+
+.article-section:first-child {
+  margin-top: 0;
+}
+
+.section-number {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-2);
+}
+
+.article h2 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: clamp(26px, 3.4vw, 34px);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  margin: 0 0 var(--space-5);
+  color: var(--text);
+}
+
+.article h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+  margin: var(--space-6) auto var(--space-3);
+  color: var(--text);
+}
+
+.article p {
+  color: var(--text);
+}
+
+/* Subtle lede: slightly larger and softer for the opening paragraph */
+.article p.lede {
+  font-size: 1.08em;
+  color: var(--text-soft);
+  font-style: italic;
+}
+
+/* Drop cap on the very first body paragraph of the essay */
+.article-section:first-of-type p.lede::first-letter {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  float: left;
+  font-size: 3.6em;
+  line-height: 0.88;
+  padding: 0.05em 0.08em 0 0;
+  color: var(--accent);
+  font-style: normal;
+}
+
+/* Aside / margin-note style paragraph */
+.article p.aside-note {
+  font-size: 0.92em;
+  color: var(--text-soft);
+  background: var(--bg-aside);
+  border-left: 3px solid var(--accent);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Math blocks */
+.math-block {
+  margin: var(--space-5) auto;
+  text-align: center;
+  font-size: 1.05em;
+  overflow-x: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Floating TOC
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.toc {
+  display: none;
+}
+
+@media (min-width: 1180px) {
+  .toc {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: max(20px, calc((100vw - 984px) / 2 - 220px));
+    transform: translateY(-50%);
+    width: 200px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--text-muted);
+    z-index: 50;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .toc--hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%) translateX(-12px);
+  }
+}
+
+.toc-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-list li {
+  margin: 0;
+}
+
+.toc-list a {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  border: none;
+  border-left: 2px solid transparent;
+  padding-left: 8px;
+  margin-left: -8px;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.toc-list a:hover {
+  color: var(--accent);
+  background: transparent;
+}
+
+.toc-list a.is-active {
+  color: var(--text);
+  border-left-color: var(--accent);
+  font-weight: 500;
+}
+
+.toc-num {
+  display: inline-block;
+  width: 1.4em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.toc-list a.is-active .toc-num {
+  color: var(--accent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Widget slots (interactive figures)
+ * ───────────────────────────────────────────────────────────────────────── */
+
 .widget-slot {
-  display: block;
-  margin: 1.5rem 0;
-  padding: 1rem;
-  background: var(--widget-bg);
-  border: 1px solid var(--widget-border);
-  border-radius: 6px;
-  /* On narrow screens, widgets should fall back to vertical layouts.
-     Each widget component is responsible for its own internal responsive layout. */
-  min-height: 320px;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-6);
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: var(--space-5);
+  box-shadow:
+    0 1px 1px rgba(58, 47, 30, 0.04),
+    0 4px 12px -6px rgba(58, 47, 30, 0.08);
   position: relative;
+  overflow: hidden;
+}
+
+.widget-slot::before {
+  /* a thin accent bar at the top of every widget */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-pole) 100%);
+  opacity: 0.65;
+}
+
+.widget-slot[data-empty="true"] {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--bg-subtle) 0,
+      var(--bg-subtle) 6px,
+      var(--bg) 6px,
+      var(--bg) 14px
+    );
+  border-style: dashed;
+  min-height: 240px;
 }
 
 .widget-slot[data-empty="true"]::after {
-  content: "widget not yet mounted";
+  content: attr(data-empty-label);
   display: block;
-  color: #999;
-  font-size: 0.85rem;
-  font-style: italic;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   text-align: center;
-  padding: 4rem 0;
+  padding: var(--space-9) 0;
 }
 
-/* Margins for the article's body width — distill-template handles this, but we
-   pin it to be sure on browsers that miss the cascade. */
-d-article > h2 {
-  margin-top: 2.5rem;
-  margin-bottom: 0.5rem;
+/* ─────────────────────────────────────────────────────────────────────────
+ * Footer
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.article-footer {
+  border-top: 1px solid var(--rule);
+  margin-top: var(--space-8);
+  padding: var(--space-6) 0 var(--space-8);
+  background: var(--bg-subtle);
 }
 
-/* Mobile: widget slots become full-bleed. */
+.footer-inner {
+  max-width: 648px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.footer-note {
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Mobile and reduced-motion
+ * ───────────────────────────────────────────────────────────────────────── */
+
 @media (max-width: 720px) {
-  .widget-slot {
-    padding: 0.5rem;
-    margin: 1rem -0.5rem;
-    border-radius: 0;
+  :root {
+    --fs-body: 17px;
   }
+  .widget-slot {
+    padding: var(--space-3);
+    border-radius: 4px;
+    margin-left: calc(-1 * var(--space-3));
+    margin-right: calc(-1 * var(--space-3));
+  }
+  .article-header {
+    padding-top: var(--space-7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
