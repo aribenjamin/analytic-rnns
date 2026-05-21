@@ -18,10 +18,9 @@
     type ModalSystem,
     evalH,
     impulseResponse,
-    numeratorPoly,
+    residuesFromZeros,
   } from '../lib/transferFn';
-  import { polyRoots, organizeRoots } from '../lib/polyRoots';
-  import { type Complex, c, expi, mul, sub, div, ZERO, abs } from '../lib/complex';
+  import { type Complex, expi } from '../lib/complex';
 
   // A pair of poles + (optionally) a pair of zeros, all draggable. Default to
   // a single complex-conjugate pole pair (one resonance) and no zeros.
@@ -46,26 +45,6 @@
   let bode: BodePlot | null = null;
   let impulse: TimeSeries | null = null;
 
-  /** Compute residues at each pole given the current pole and zero positions.
-   *  H(z) = Q(z) / P(z), where P(z) = prod_k (z - p_k) and Q(z) = prod_m (z - q_m).
-   *  Residue at p_k is Q(p_k) / prod_{j != k} (p_k - p_j). */
-  function computeResidues(poles: Complex[], zeros: Complex[]): Complex[] {
-    const r: Complex[] = [];
-    for (let k = 0; k < poles.length; k++) {
-      // Q(p_k) = prod_m (p_k - q_m)
-      let qk: Complex = { re: 1, im: 0 };
-      for (const q of zeros) qk = mul(qk, sub(poles[k], q));
-      // Denom = prod_{j != k} (p_k - p_j)
-      let denom: Complex = { re: 1, im: 0 };
-      for (let j = 0; j < poles.length; j++) {
-        if (j === k) continue;
-        denom = mul(denom, sub(poles[k], poles[j]));
-      }
-      r.push(div(qk, denom));
-    }
-    return r;
-  }
-
   function currentPoles(): Complex[] {
     return polePairs.flatMap((pair) => pair.map((p) => p.z));
   }
@@ -76,8 +55,7 @@
   function currentSystem(): ModalSystem {
     const poles = currentPoles();
     const zeros = currentZeros();
-    const residues = computeResidues(poles, zeros);
-    return { poles, residues };
+    return { poles, residues: residuesFromZeros(poles, zeros) };
   }
 
   function points(): ZPlanePoint[] {

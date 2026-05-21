@@ -152,11 +152,12 @@ export class BodePlot {
 
   update(data: BodeData, ghost?: BodeData): void {
     const { xScale, yScale } = this;
+    const allowZero = !this.opts.yLog;
     const line = d3
       .line<{ theta: number; mag: number }>()
       .x((d) => xScale(d.theta))
       .y((d) => yScale(Math.max(this.opts.yMin, d.mag)))
-      .defined((d) => Number.isFinite(d.mag) && d.mag > 0);
+      .defined((d) => Number.isFinite(d.mag) && (allowZero ? d.mag >= 0 : d.mag > 0));
     const main = data.theta.map((t, i) => ({ theta: t, mag: data.magnitude[i] }));
     this.mainPath.attr('d', line(main) ?? '');
     if (ghost) {

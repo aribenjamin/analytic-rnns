@@ -7,6 +7,7 @@ import {
   zeros,
   impulseResponse,
   frequencyResponse,
+  residuesFromZeros,
   simulate,
   poleZeroSeparation,
 } from './transferFn';
@@ -116,6 +117,78 @@ describe('transfer function — complex conjugate pair', () => {
     for (let t = 0; t < T; t++) {
       expect(y[t]).toBeCloseTo(g[t], 10);
     }
+  });
+});
+
+describe('residuesFromZeros', () => {
+  it('no zeros → residue is 1 / (product of pole-pole differences)', () => {
+    // Single pole, monic numerator Q(z) = 1. Then r = 1 / 1 = 1.
+    const r = residuesFromZeros([c(0.5)], []);
+    expect(r).toHaveLength(1);
+    expect(r[0].re).toBeCloseTo(1, 12);
+    expect(r[0].im).toBeCloseTo(0, 12);
+  });
+
+  it('zero on top of a pole zeroes that residue exactly', () => {
+    const poles = [c(0.5), c(0.2)];
+    const r = residuesFromZeros(poles, [c(0.5)]);
+    // Q(0.5) = (0.5 - 0.5) = 0 → residue at p=0.5 is 0.
+    expect(abs(r[0])).toBeLessThan(1e-12);
+    // Q(0.2) = (0.2 - 0.5) = -0.3; denom = (0.2 - 0.5) = -0.3; r[1] = 1.
+    expect(r[1].re).toBeCloseTo(1, 12);
+  });
+
+  it('matches numeratorPoly: H from (poles, residues) equals Q(z)/P(z) sampled', () => {
+    // Build a system from (poles, zeros), derive residues, then verify that
+    // evalH(sys, z) equals the rational Q(z)/P(z) on a few test points.
+    const poles = [c(0.6), c(-0.3)];
+    const zs = [c(0.1)];
+    const residues = residuesFromZeros(poles, zs);
+    const sys: ModalSystem = { poles, residues };
+
+    for (const zTest of [c(1), c(0.8), { re: 0.5, im: 0.5 }, { re: -0.2, im: 0.4 }]) {
+      // Q(z) = (z - 0.1)
+      const Q_re = zTest.re - 0.1;
+      const Q_im = zTest.im;
+      // P(z) = (z - 0.6)(z + 0.3) = z² - 0.3 z - 0.18; z² = (re² - im²) + 2·re·im·i
+      const z2_re = zTest.re * zTest.re - zTest.im * zTest.im;
+      const z2_im = 2 * zTest.re * zTest.im;
+      const P_re = z2_re - 0.3 * zTest.re - 0.18;
+      const P_im = z2_im - 0.3 * zTest.im;
+      const denom = P_re * P_re + P_im * P_im;
+      const expected_re = (Q_re * P_re + Q_im * P_im) / denom;
+      const expected_im = (Q_im * P_re - Q_re * P_im) / denom;
+
+      const got = evalH(sys, zTest);
+      expect(got.re).toBeCloseTo(expected_re, 10);
+      expect(got.im).toBeCloseTo(expected_im, 10);
+    }
+  });
+
+  it('complex pole pair with zero at the pole silences the mode', () => {
+    // Pole pair at p = 0.9 e^{i pi/3} and its conjugate; zero at p exactly.
+    // Then residue at p is exactly 0 (and at p̄ too, since q̄ sits on p̄).
+    const p = { re: 0.9 * Math.cos(Math.PI / 3), im: 0.9 * Math.sin(Math.PI / 3) };
+    const pConj = { re: p.re, im: -p.im };
+    const r = residuesFromZeros([p, pConj], [p, pConj]);
+    expect(abs(r[0])).toBeLessThan(1e-12);
+    expect(abs(r[1])).toBeLessThan(1e-12);
+  });
+
+  it('linear-in-separation: |r| ≈ s for small radial separation', () => {
+    // Pole at p = 0.95 e^{i π/4}, zero at q = p + s · (p/|p|).
+    // For small s, |r_p| ≈ s (with a slowly-growing multiplier).
+    const theta = Math.PI / 4;
+    const p = { re: 0.95 * Math.cos(theta), im: 0.95 * Math.sin(theta) };
+    const pConj = { re: p.re, im: -p.im };
+    const dir = { re: Math.cos(theta), im: Math.sin(theta) };
+    const s = 0.05;
+    const q = { re: p.re + s * dir.re, im: p.im + s * dir.im };
+    const qConj = { re: q.re, im: -q.im };
+    const r = residuesFromZeros([p, pConj], [q, qConj]);
+    // Within ~10% of s at this small separation.
+    expect(abs(r[0])).toBeGreaterThan(0.9 * s);
+    expect(abs(r[0])).toBeLessThan(1.1 * s);
   });
 });
 

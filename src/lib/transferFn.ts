@@ -83,6 +83,32 @@ export function denominatorPoly(sys: ModalSystem): Complex[] {
   return fromRoots(sys.poles);
 }
 
+/**
+ * Residues at each pole for the rational H(z) = Q(z) / P(z), where
+ *   Q(z) = prod_m (z - q_m)   (monic numerator),
+ *   P(z) = prod_k (z - p_k).
+ * By partial fractions, r_k = Q(p_k) / prod_{j != k} (p_k - p_j). When a zero
+ * coincides with a pole, the corresponding residue is exactly zero.
+ *
+ * This is the (poles, zeros) → modal-coordinates conversion that pairs with
+ * `numeratorPoly` (modal → polynomial). Used by widgets that expose zeros to
+ * the reader but evaluate H(z) modally.
+ */
+export function residuesFromZeros(poles: Complex[], zeros: Complex[]): Complex[] {
+  const r: Complex[] = [];
+  for (let k = 0; k < poles.length; k++) {
+    let qk: Complex = { re: 1, im: 0 };
+    for (const q of zeros) qk = mul(qk, sub(poles[k], q));
+    let denom: Complex = { re: 1, im: 0 };
+    for (let j = 0; j < poles.length; j++) {
+      if (j === k) continue;
+      denom = mul(denom, sub(poles[k], poles[j]));
+    }
+    r.push(div(qk, denom));
+  }
+  return r;
+}
+
 /** Zeros of H(z): roots of the numerator polynomial. */
 export function zeros(sys: ModalSystem): Complex[] {
   const q = numeratorPoly(sys);
