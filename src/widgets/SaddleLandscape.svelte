@@ -50,8 +50,31 @@
   let canvasEl: HTMLCanvasElement;
   let landscapeSvg: SVGSVGElement;
   let tsSvg: SVGSVGElement;
+  let errSvg: SVGSVGElement;
   let cf: ContourFlow | null = null;
   let ts: TimeSeries | null = null;
+  let terr: TimeSeries | null = null;
+
+  // Time-domain error: pretend target and learned share a fixed pole p_imp.
+  // Target impulse response y*(t) = r*·p^t with r* = J/S (the minimum value
+  // of αβ). Learned ŷ(t) = (αβ)·p^t. The error e(t) = (r* − αβ)·p^t shrinks
+  // to zero exactly when the ball reaches the αβ = J/S minimum hyperbola.
+  const P_IMP = 0.7;
+  const T_IMP = 40;
+  const IMP_POW: number[] = (() => {
+    const a = new Array<number>(T_IMP);
+    let v = 1;
+    for (let t = 0; t < T_IMP; t++) { a[t] = v; v *= P_IMP; }
+    return a;
+  })();
+
+  function errorSeries(alpha: number, beta: number): number[] {
+    const rStar = J / S;
+    const gapNorm = rStar === 0 ? 0 : (rStar - alpha * beta) / rStar;
+    const out = new Array<number>(T_IMP);
+    for (let t = 0; t < T_IMP; t++) out[t] = gapNorm * IMP_POW[t];
+    return out;
+  }
 
   // Read-outs.
   $: currentAlpha = liveTraj.length ? liveTraj[liveTraj.length - 1].alpha : 0;
@@ -94,6 +117,27 @@
   }
 
   // ── live ball ────────────────────────────────────────────────────────
+  function updateErr(alpha: number, beta: number): void {
+    if (!terr) return;
+    terr.update([
+      {
+        id: 'zero',
+        values: new Array(T_IMP).fill(0),
+        color: 'var(--text-faint)',
+        style: 'line',
+        width: 1,
+        dasharray: '4 3',
+      },
+      {
+        id: 'err',
+        values: errorSeries(alpha, beta),
+        color: 'var(--accent-pole)',
+        style: 'line',
+        width: 2,
+      },
+    ]);
+  }
+
   function stopLive(): void {
     liveActive = false;
     if (rafId) cancelAnimationFrame(rafId);
@@ -107,6 +151,7 @@
     rafId = requestAnimationFrame(stepLive);
     cf?.setLiveTrace([{ x: a0, y: b0 }]);
     cf?.setLiveBall({ x: a0, y: b0 });
+    updateErr(a0, b0);
     ts?.update([
       {
         id: 'live',
@@ -149,6 +194,7 @@
     const head = liveTraj[liveTraj.length - 1];
     cf?.setLiveTrace(liveTraj.map((p) => ({ x: p.alpha, y: p.beta })));
     cf?.setLiveBall({ x: head.alpha, y: head.beta });
+    updateErr(head.alpha, head.beta);
     // Pad the dashed baseline reference to the current length so both lines
     // share an x axis.
     const baselineSeries = new Array(liveTraj.length).fill(baseline);
@@ -247,6 +293,16 @@
       },
     ]);
 
+    terr = new TimeSeries(errSvg, {
+      width: 460,
+      height: 240,
+      xLabel: 'time t (impulse response sample)',
+      yLabel: 'e(t) / r*  (units of target residue)',
+      yMin: -1.4,
+      yMax: 1.4,
+    });
+    updateErr(0, 0);
+
     // Auto-drop one ball so the widget reads as active on first paint.
     dropBall();
   });
@@ -265,9 +321,15 @@
         <svg bind:this={landscapeSvg}></svg>
       </div>
     </div>
-    <div class="widget-panel widget-panel--loss">
-      <div class="widget-panel-header">L(τ) — gradient flow of the live ball</div>
-      <svg bind:this={tsSvg}></svg>
+    <div class="widget-right-col">
+      <div class="widget-panel widget-panel--loss">
+        <div class="widget-panel-header">L(τ) — gradient flow of the live ball</div>
+        <svg bind:this={tsSvg}></svg>
+      </div>
+      <div class="widget-panel widget-panel--err">
+        <div class="widget-panel-header">e(t) — error from target impulse response</div>
+        <svg bind:this={errSvg}></svg>
+      </div>
     </div>
   </div>
 
@@ -336,7 +398,23 @@
   }
 
   .widget-panel--loss {
-    min-height: 280px;
+    min-height: 240px;
+  }
+
+  .widget-panel--err {
+    min-height: 200px;
+  }
+
+  .widget-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .widget-panel--err svg {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 
   .landscape-stage {
