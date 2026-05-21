@@ -17,7 +17,7 @@
     'var(--accent-target, #2a9d8f)',
   ];
 
-  let sigma0 = 0.01;
+  let sigma0 = 0.001;
   let tauMax = 14;
   const STEPS = 400;
 
@@ -151,7 +151,7 @@
       init scale σ⁰ = {sigma0.toExponential(1)}
       <input
         type="range"
-        min={-4}
+        min={-6}
         max={-1}
         step={0.25}
         value={Math.log10(sigma0)}
