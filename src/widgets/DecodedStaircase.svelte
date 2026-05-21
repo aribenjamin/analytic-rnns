@@ -5,11 +5,13 @@
   via gradient flow on a multi-frequency impulse-response target.  Three
   synced panels:
 
-    1.  Loss curve (log y) — clean staircase descent.
-    2.  Effective rank ρ(τ) — integer step function climbing from 0 to n.
-    3.  z-plane — live pole positions, with target ghost markers and the
+    1.  z-plane — live pole positions, with target ghost markers and the
         numerator zeros of the *current* system (so the reader can watch
         each zero "leave" its pole as the corresponding mode activates).
+    2.  |H(e^{iθ})| — frequency response of the *current* system vs the
+        target. This is the "what is the network learning?" view: each
+        cliff in the loss adds a new peak to the magnitude response.
+    3.  Loss curve (log y) — clean staircase descent, full-width below.
 
   The training runs in a Web Worker; the scrubber lets the reader step
   through the recorded trajectory.
@@ -18,13 +20,15 @@
   import { onMount, onDestroy } from 'svelte';
   import { ZPlane, type ZPlanePoint } from '../lib/plots/ZPlane';
   import { TimeSeries } from '../lib/plots/TimeSeries';
+  import { BodePlot } from '../lib/plots/BodePlot';
   import {
     defaultTarget,
     toModalSystem,
     type TraceSnapshot,
     type ModalTarget,
   } from '../lib/gradientFlow';
-  import { zeros as zerosOfSystem } from '../lib/transferFn';
+  import { zeros as zerosOfSystem, frequencyResponse, evalH } from '../lib/transferFn';
+  import { expi, abs as cabs } from '../lib/complex';
 
   const T_HORIZON = 160;
   const target: ModalTarget = defaultTarget(T_HORIZON);
@@ -50,10 +54,15 @@
 
   let zSvg: SVGSVGElement;
   let lossSvg: SVGSVGElement;
-  let rhoSvg: SVGSVGElement;
+  let bodeSvg: SVGSVGElement;
   let zPlane: ZPlane | null = null;
   let lossPlot: TimeSeries | null = null;
-  let rhoPlot: TimeSeries | null = null;
+  let bodePlot: BodePlot | null = null;
+
+  const N_FREQ = 256;
+  let targetMag: number[] = [];
+  let freqTheta: number[] = [];
+  let bodeYMax = 10;
 
   // Per-mode colors — picked to match the article's accent palette and to
   // remain distinguishable on the z-plane and in the residue legend.
@@ -132,16 +141,30 @@
     return pts;
   }
 
+  function magOnHalfCircle(sys: { poles: any[]; residues: any[] }): number[] {
+    const out = new Array(N_FREQ);
+    for (let i = 0; i < N_FREQ; i++) {
+      const th = (Math.PI * i) / (N_FREQ - 1);
+      out[i] = cabs(evalH(sys as any, expi(th)));
+    }
+    return out;
+  }
+
   function redraw(): void {
-    if (!trace.length || !zPlane || !lossPlot || !rhoPlot) return;
+    if (!trace.length || !zPlane || !lossPlot || !bodePlot) return;
     const snap = trace[Math.min(cursor, trace.length - 1)];
     zPlane.update(pointsForSnapshot(snap));
+
+    // Frequency response of the live system vs the target (ghost).
+    const liveMag = magOnHalfCircle(toModalSystem(snap.state));
+    bodePlot.update(
+      { theta: freqTheta, magnitude: liveMag },
+      { theta: freqTheta, magnitude: targetMag },
+    );
 
     // Loss curve up through the cursor + ghost-trailing.
     const lossSeen: number[] = trace.slice(0, cursor + 1).map((s) => s.loss);
     const lossAll: number[] = trace.map((s) => s.loss);
-    const rhoSeen: number[] = trace.slice(0, cursor + 1).map((s) => s.rho);
-    const rhoAll: number[] = trace.map((s) => s.rho);
 
     lossPlot.update([
       {
@@ -156,24 +179,6 @@
         id: 'loss-seen',
         values: lossSeen,
         color: 'var(--accent-active, #d1495b)',
-        style: 'line',
-        width: 2.2,
-      },
-    ]);
-
-    rhoPlot.update([
-      {
-        id: 'rho-all',
-        values: rhoAll,
-        color: 'var(--text-faint, #ccc)',
-        style: 'line',
-        width: 1,
-        dasharray: '2 3',
-      },
-      {
-        id: 'rho-seen',
-        values: rhoSeen,
-        color: '#2e4057',
         style: 'line',
         width: 2.2,
       },
@@ -221,17 +226,25 @@
   }
 
   onMount(() => {
+    // Pre-compute target frequency response + a sensible y-axis ceiling
+    // (~1.4× the target's peak, padded out so the live response can briefly
+    // overshoot during training without clipping).
+    const targetSys = toModalSystem({ modes: target.modes });
+    targetMag = magOnHalfCircle(targetSys);
+    freqTheta = Array.from({ length: N_FREQ }, (_, i) => (Math.PI * i) / (N_FREQ - 1));
+    const peak = Math.max(1, ...targetMag);
+    bodeYMax = Math.pow(10, Math.ceil(Math.log10(peak * 2)));
+
     zPlane = new ZPlane(zSvg, {});
     lossPlot = new TimeSeries(lossSvg, {
       xLabel: 'training time τ (snapshot index)',
       yLabel: 'loss',
       yLog: true,
     });
-    rhoPlot = new TimeSeries(rhoSvg, {
-      xLabel: 'training time τ',
-      yLabel: 'effective rank ρ',
-      yMin: -0.3,
-      yMax: target.modes.length + 0.3,
+    bodePlot = new BodePlot(bodeSvg, {
+      yMin: 0.05,
+      yMax: bodeYMax,
+      yLog: true,
     });
     startTraining();
   });
@@ -247,19 +260,25 @@
 </script>
 
 <div class="widget widget--staircase">
-  <div class="widget-row widget-row--three">
-    <div class="widget-panel">
-      <div class="widget-panel-header">loss L(τ)</div>
-      <svg bind:this={lossSvg}></svg>
-    </div>
-    <div class="widget-panel">
-      <div class="widget-panel-header">effective rank ρ(τ)</div>
-      <svg bind:this={rhoSvg}></svg>
-    </div>
+  <div class="widget-row widget-row--top">
     <div class="widget-panel widget-panel--zplane">
-      <div class="widget-panel-header">z-plane</div>
+      <div class="widget-panel-header">z-plane — poles (×) &amp; zeros (○)</div>
       <svg bind:this={zSvg}></svg>
     </div>
+    <div class="widget-panel widget-panel--bode">
+      <div class="widget-panel-header">
+        |H(e<sup>iθ</sup>)| &nbsp; — &nbsp;
+        <span class="legend-swatch legend-swatch--target"></span> target
+        &nbsp;
+        <span class="legend-swatch legend-swatch--live"></span> learned
+      </div>
+      <svg bind:this={bodeSvg}></svg>
+    </div>
+  </div>
+
+  <div class="widget-panel widget-panel--loss">
+    <div class="widget-panel-header">loss L(τ)</div>
+    <svg bind:this={lossSvg}></svg>
   </div>
 
   <div class="widget-controls staircase-controls">
@@ -286,13 +305,25 @@
     />
     <p class="widget-hint">
       Each cliff in L(τ) is one pole–zero pair separating in the complex
-      plane. Watch ρ(τ) step up in lockstep, and watch the numerator zeros
-      (○) peel away from the live poles (×) as their residues grow.
+      plane — and one new <em>peak</em> appearing in |H(e<sup>iθ</sup>)|.
+      Scrub the slider to watch the network learn one frequency at a time:
+      every cliff is the network "discovering" the next mode of the
+      target, visible as the solid learned curve rising to meet the
+      dashed target at a new resonance.
     </p>
   </div>
 </div>
 
 <style>
+  .widget--staircase {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    /* Keep the widget within its widget-l-page slot but cap so it never
+       extends past the article container at any viewport. */
+    max-width: 100%;
+    overflow: hidden;
+  }
   .widget--staircase svg {
     width: 100%;
     height: auto;
@@ -300,15 +331,27 @@
   }
   .widget-panel--zplane {
     aspect-ratio: 1 / 1;
+    min-width: 0;
   }
-  .widget-row--three {
+  .widget-panel--bode {
+    aspect-ratio: 16 / 11;
+    min-width: 0;
+  }
+  .widget-panel--loss {
+    min-width: 0;
+  }
+  .widget-panel--loss :global(svg) {
+    /* keep loss curve short so it doesn't dominate the layout */
+    max-height: 180px;
+  }
+  .widget-row--top {
     display: grid;
     gap: var(--space-4);
     grid-template-columns: 1fr;
   }
-  @media (min-width: 720px) {
-    .widget-row--three {
-      grid-template-columns: 1.1fr 1.1fr 1fr;
+  @media (min-width: 760px) {
+    .widget-row--top {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
       align-items: stretch;
     }
   }
@@ -317,8 +360,31 @@
   }
   .staircase-stats {
     font-family: var(--font-mono, JetBrains Mono, monospace);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-soft);
     margin-left: auto;
+  }
+  .widget-panel--bode .widget-panel-header,
+  .widget-panel--zplane .widget-panel-header,
+  .widget-panel--loss .widget-panel-header {
+    font-size: 12.5px;
+  }
+  .legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+    vertical-align: middle;
+    margin: 0 2px 2px 4px;
+  }
+  .legend-swatch--target {
+    border-top: 2px dashed var(--accent-target, #888);
+    height: 0;
+  }
+  .legend-swatch--live {
+    background: var(--accent-active, #d1495b);
+  }
+  .widget--staircase :global(.widget-hint) {
+    font-size: 14px;
+    line-height: 1.55;
   }
 </style>
