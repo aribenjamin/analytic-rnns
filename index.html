@@ -508,6 +508,17 @@
           frequency) is learned last, regardless of how much of the
           target lives there.
         </p>
+
+        <p>
+          Everything so far is a real number — the escape rate $|J_k|$
+          that sets the ordering. But the modes live in the complex
+          plane, and a rate alone doesn't say which direction the zero
+          leaves the pole. In feedforward networks this question never
+          arises: singular values are real and escape is along a fixed
+          axis. In $\mathbb{C}$, the zero can depart at any angle.
+          What picks the direction? § 8 takes this up after we see the
+          full staircase in action.
+        </p>
       </section>
 
       <section id="sec-staircase" class="article-section">
@@ -532,36 +543,108 @@
         <h2>Direction in ℂ: lines and spirals</h2>
 
         <p class="lede">
-          §7 showed the staircase: each cliff in the loss is one pole–zero
+          § 7 showed the staircase: each cliff in the loss is one pole–zero
           pair separating in the complex plane. This section zooms into a
           single one of those separations and asks what <em>shape</em> it
-          traces.
+          traces in the complex plane.
         </p>
 
         <p>
-          Train an actual recurrent network with one target mode held silent
-          at the start — a pole and a zero sitting on top of each other, a
-          cancellation saddle. Run gradient descent and watch the zero come
-          off the pole. For a real target pole it leaves along a straight
-          line. For a complex target pole the residue's phase turns as it
-          grows, and the zero swings as it separates — a spiral.
+          Start a network at a cancellation saddle — pole and zero sitting
+          on top of each other — and run gradient descent. For a real target
+          pole, the zero departs along a straight line on the real axis: the
+          same one-dimensional escape you see in a feedforward network. For
+          a complex target pole, the zero curves away — its direction
+          rotates as its distance grows. The curve isn't random. A single
+          equation governs it.
         </p>
 
         <p>
-          The escape is not arbitrary. The separation flow predicts that near
-          the saddle the separation grows along a fixed direction
-          $e^{i\arg\lambda/2}$ in $\mathbb{C}$, at rate $|\lambda|$. The widget
-          measures $|\lambda|$ and $\arg\lambda$ from the network's own early
-          trajectory and draws the predicted escape — the real, slightly messy
-          training run lands on the clean prediction. The complex pole also
-          leaves a fingerprint in time: a transient wobble in the mode's
-          output, at frequency $|\lambda|\sin(\arg\lambda/2)$, as it settles in.
+          Near the saddle, the separation $\varepsilon = p - q$ (pole minus
+          zero) obeys
+        </p>
+
+        $$\frac{d\varepsilon}{d\tau} \;=\; \lambda\,\bar{\varepsilon}$$
+
+        <p>
+          where $\lambda \in \mathbb{C}$ is a data-dependent coefficient and
+          the bar denotes complex
+          conjugate.<d-footnote>
+          <strong>Why the conjugate?</strong> Each mode's output
+          amplitude is a product of two complex parameters:
+          $r_k = \alpha_k \cdot \beta_k$
+          (input coupling times output coupling). At a cancellation
+          saddle, one factor — say $\alpha_k$ — is near zero. Gradient
+          descent on $\alpha_k$ pushes it in a direction that depends
+          on $\bar\beta_k$, the conjugate of its partner: differentiating
+          a real-valued loss through a bilinear product pairs each factor
+          with the conjugate of the other. When you translate from the
+          $(\alpha_k,\beta_k)$ dynamics to the separation variable
+          $\varepsilon \propto \alpha_k\beta_k$, that conjugation carries
+          over — the leading flow term involves $\bar\varepsilon$, not
+          $\varepsilon$. (The same product structure is what creates the
+          saddle in the first place: the surface $\alpha\beta = 0$ is a
+          saddle at the origin of $\mathbb{C}^2$.)
+          <br><br>
+          <strong>Decoupled form.</strong> Write
+          $\lambda = |\lambda|e^{i\varphi}$ and substitute
+          $\varepsilon = e^{i\varphi/2}(\varepsilon_1 +
+          i\varepsilon_2)$. Then $\bar\varepsilon =
+          e^{-i\varphi/2}(\varepsilon_1 - i\varepsilon_2)$, so
+          $\lambda\bar\varepsilon = |\lambda|(\varepsilon_1 -
+          i\varepsilon_2)$. Equating real and imaginary parts:
+          $\dot\varepsilon_1 = |\lambda|\varepsilon_1$ (exponential
+          growth) and $\dot\varepsilon_2 = -|\lambda|\varepsilon_2$
+          (exponential decay). The growing component points along
+          $e^{i\varphi/2}$; the decaying component is perpendicular.
+          The transient oscillation frequency
+          $\omega = |\lambda|\sin(\varphi/2)$ is the angular velocity
+          of the decaying transverse component projected onto the
+          output.</d-footnote>
+          Read $\lambda\bar\varepsilon$ geometrically. Conjugation
+          reflects $\varepsilon$ across the real axis: if $\varepsilon$
+          points at angle $\theta$, the reflection $\bar\varepsilon$ points
+          at $-\theta$. Multiplying by
+          $\lambda = |\lambda|\,e^{i\varphi}$ then scales by $|\lambda|$
+          and rotates by $\varphi$, landing at angle
+          $\varphi - \theta$. So the velocity of $\varepsilon$ points at
+          angle $\varphi - \theta$: <em>reflect, then rotate</em>.
         </p>
 
         <p>
-          Dial the target pole from the real axis up into the complex plane,
-          press train, and watch the separation turn from a line into a
-          spiral.
+          For the separation to grow without turning — velocity parallel to
+          $\varepsilon$ itself — we need $\varphi - \theta = \theta$, i.e.
+          $\theta = \varphi/2$. The direction $e^{i\varphi/2}$ is the unique
+          direction that maps to itself under reflect-then-rotate. Along it,
+          the separation grows purely radially at rate $|\lambda|$. Any other
+          initial direction gets a transverse kick that swings $\varepsilon$
+          toward $e^{i\varphi/2}$ as it grows — that swing is the curve you
+          see in the widget.
+        </p>
+
+        <p>
+          What determines $\varphi = \arg\lambda$? It is the phase of the
+          cross-correlation between the residual error — what the other modes
+          leave unexplained — and the watched mode's sensitivity to its pole
+          position. For a real target pole, this cross-correlation is real:
+          $\varphi = 0$, $e^{i \cdot 0} = 1$, and the zero departs along
+          the real axis. For a complex target pole, the other modes
+          leave a complex-valued residual, $\varphi$ rotates away from zero,
+          and the escape direction tilts off the real axis. The escape
+          direction is a fingerprint of the data distribution, readable from
+          the early training trajectory.
+        </p>
+
+        <p>
+          Below, the widget overlays the predicted escape direction (dashed)
+          on actual gradient-descent trajectories (solid). Both $|\lambda|$
+          and $\arg\lambda$ are measured from the network's own early
+          trajectory — the messy real run landing on the clean prediction.
+          The right panel shows the transient wobble at frequency
+          $|\lambda|\sin(\varphi/2)$: the decaying transverse component of
+          the separation, visible as an overshoot in the mode's output.
+          Dial the target pole from the real axis into the complex plane,
+          press play, and watch the line become a curve.
         </p>
 
         <div id="widget-spiral-separation" class="widget-slot widget-l-middle"></div>

@@ -381,13 +381,14 @@
     </div>
 
     <p class="widget-hint">
-      The watched mode starts silent — a pole and a zero sitting on top of each
-      other, a cancellation saddle. Gradient descent pulls them apart. For a
-      near-real target pole the zero leaves along a straight line; swing the
-      pole up into the complex plane and the escape becomes a spiral. The dashed
-      red curve is the separation-flow prediction, with <code>|λ|</code> and
-      <code>arg λ</code> fitted from the run's own early trajectory — the actual
-      training lands on it.
+      The watched mode starts at a cancellation saddle (pole and zero coincident).
+      Gradient descent pulls them apart along the direction
+      <em>e</em><sup><em>iφ</em>/2</sup> — the unique angle that maps to itself
+      under reflect-then-rotate. For a real target pole, φ&nbsp;=&nbsp;0 and the
+      escape is a straight line. Swing the pole into the complex plane and the
+      escape curves: any initial misalignment with <em>e</em><sup><em>iφ</em>/2</sup>
+      gets a transverse kick. The dashed red curve is the predicted direction,
+      with |λ| and arg&nbsp;λ fitted from the network's own early trajectory.
     </p>
   </div>
 </div>
