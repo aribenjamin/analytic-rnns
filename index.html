@@ -60,6 +60,7 @@
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">5</span>Cancellation is a saddle</a></li>
         <li><a href="#sec-escape" data-toc-target="sec-escape"><span class="toc-num">6</span>Escape rates and the order of modes</a></li>
         <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
+        <li><a href="#sec-spiral" data-toc-target="sec-spiral"><span class="toc-num">8</span>Lines and spirals</a></li>
         <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
@@ -538,6 +539,46 @@
 
       </section>
 
+      <section id="sec-spiral" class="article-section">
+        <p class="section-number">§ 8</p>
+        <h2>Direction in ℂ: lines and spirals</h2>
+
+        <p class="lede">
+          §7 showed the staircase: each cliff in the loss is one pole–zero
+          pair separating in the complex plane. This section zooms into a
+          single one of those separations and asks what <em>shape</em> it
+          traces.
+        </p>
+
+        <p>
+          Train an actual recurrent network with one target mode held silent
+          at the start — a pole and a zero sitting on top of each other, a
+          cancellation saddle. Run gradient descent and watch the zero come
+          off the pole. For a real target pole it leaves along a straight
+          line. For a complex target pole the residue's phase turns as it
+          grows, and the zero swings as it separates — a spiral.
+        </p>
+
+        <p>
+          The escape is not arbitrary. The separation flow predicts that near
+          the saddle the separation grows along a fixed direction
+          $e^{i\arg\lambda/2}$ in $\mathbb{C}$, at rate $|\lambda|$. The widget
+          measures $|\lambda|$ and $\arg\lambda$ from the network's own early
+          trajectory and draws the predicted escape — the real, slightly messy
+          training run lands on the clean prediction. The complex pole also
+          leaves a fingerprint in time: a transient wobble in the mode's
+          output, at frequency $|\lambda|\sin(\arg\lambda/2)$, as it settles in.
+        </p>
+
+        <p>
+          Dial the target pole from the real axis up into the complex plane,
+          press train, and watch the separation turn from a line into a
+          spiral.
+        </p>
+
+        <div id="widget-spiral-separation" class="widget-slot widget-l-middle"></div>
+      </section>
+
       <section id="sec-references" class="article-section">
         <p class="section-number">references</p>
         <h2>References</h2>
@@ -585,7 +626,7 @@
     <footer class="article-footer">
       <div class="footer-inner">
         <p class="footer-note">
-          Draft for review. All §§ 1–6 figures are functional, pending a
+          Draft for review. All §§ 1–8 figures are functional, pending a
           full read-through pass.
         </p>
       </div>
