@@ -330,11 +330,9 @@
     display: block;
   }
   .widget-panel--zplane {
-    aspect-ratio: 1 / 1;
     min-width: 0;
   }
   .widget-panel--bode {
-    aspect-ratio: 16 / 11;
     min-width: 0;
   }
   .widget-panel--loss {
@@ -352,7 +350,7 @@
   @media (min-width: 760px) {
     .widget-row--top {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
-      align-items: stretch;
+      align-items: start;
     }
   }
   .staircase-controls input[type='range'] {

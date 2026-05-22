@@ -393,13 +393,12 @@
   }
 
   .widget-panel--landscape {
-    aspect-ratio: 1 / 1;
     position: relative;
-    /* Keep the square panel sized by its grid track. Without min-width: 0 a
-       grid item refuses to shrink below its content's intrinsic size; without
-       align-self: start a taller right column would stretch this panel and
-       aspect-ratio would echo that height back into width, overflowing the
-       track and covering the L(τ) / e(t) panels. */
+    /* The 1:1 ratio lives on .landscape-stage, not this panel. A panel-level
+       aspect-ratio gets echoed off the grid-stretched height back into width,
+       overflowing the track and covering the L(τ) / e(t) panels. align-self:
+       start keeps the panel unstretched; min-width: 0 lets it shrink to its
+       track instead of its content's intrinsic width. */
     min-width: 0;
     align-self: start;
   }
@@ -427,7 +426,7 @@
   .landscape-stage {
     position: relative;
     width: 100%;
-    flex: 1 1 auto;
+    aspect-ratio: 1 / 1;
   }
 
   .landscape-stage canvas {
