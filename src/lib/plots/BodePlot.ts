@@ -29,7 +29,7 @@ export class BodePlot {
   private opts: Required<BodePlotOptions>;
   private width = 0;
   private height = 0;
-  private margin = { top: 16, right: 16, bottom: 28, left: 44 };
+  private margin = { top: 16, right: 16, bottom: 42, left: 52 };
   private xScale!: d3.ScaleLinear<number, number>;
   private yScale!: d3.ScaleContinuousNumeric<number, number>;
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -120,17 +120,17 @@ export class BodePlot {
     root
       .append('text')
       .attr('x', (width - m.right + m.left) / 2)
-      .attr('y', height - 4)
+      .attr('y', height - 8)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 11)
+      .attr('font-size', 15)
       .attr('fill', '#555')
-      .text('frequency θ (rad)');
+      .text('frequency θ (rad/step)');
 
     root
       .append('text')
-      .attr('transform', `translate(12, ${(height - m.bottom + m.top) / 2}) rotate(-90)`)
+      .attr('transform', `translate(15, ${(height - m.bottom + m.top) / 2}) rotate(-90)`)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 11)
+      .attr('font-size', 15)
       .attr('fill', '#555')
       .text('|H(e^{iθ})|');
 
