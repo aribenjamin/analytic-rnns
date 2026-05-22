@@ -2,7 +2,7 @@
   §7 / Figure 5: the decoded staircase.
 
   Trains a small recurrent network in modal (poles, residues = α·β) coordinates
-  via gradient flow on a multi-frequency impulse-response target.  Three
+  via gradient flow on a multi-frequency impulse-response target.  Four
   synced panels:
 
     1.  z-plane — live pole positions, with target ghost markers and the
@@ -11,7 +11,11 @@
     2.  |H(e^{iθ})| — frequency response of the *current* system vs the
         target. This is the "what is the network learning?" view: each
         cliff in the loss adds a new peak to the magnitude response.
-    3.  Loss curve (log y) — clean staircase descent, full-width below.
+    3.  Time-domain error e(t) = g(t) − g*(t) — the residual between the
+        learned and target impulse responses. This is the integrand of the
+        loss itself (L = ½ Σ_t e(t)²), so each cliff visibly flattens
+        another stretch of it toward zero.
+    4.  Loss curve (log y) — clean staircase descent, full-width below.
 
   The training runs in a Web Worker; the scrubber lets the reader step
   through the recorded trajectory.
@@ -24,6 +28,7 @@
   import {
     defaultTarget,
     toModalSystem,
+    impulseResponse,
     type TraceSnapshot,
     type ModalTarget,
   } from '../lib/gradientFlow';
@@ -55,9 +60,11 @@
   let zSvg: SVGSVGElement;
   let lossSvg: SVGSVGElement;
   let bodeSvg: SVGSVGElement;
+  let errSvg: SVGSVGElement;
   let zPlane: ZPlane | null = null;
   let lossPlot: TimeSeries | null = null;
   let bodePlot: BodePlot | null = null;
+  let errPlot: TimeSeries | null = null;
 
   const N_FREQ = 256;
   let targetMag: number[] = [];
@@ -150,6 +157,14 @@
     return out;
   }
 
+  // Time-domain residual e(t) = g(t) − g*(t): the learned impulse response
+  // minus the target, sample by sample. This is exactly the integrand of the
+  // loss (L = ½ Σ_t e(t)²).
+  function errorAt(snap: TraceSnapshot): number[] {
+    const g = impulseResponse(snap.state, T_HORIZON);
+    return g.map((v, t) => v - target.gStar[t]);
+  }
+
   function redraw(): void {
     if (!trace.length || !zPlane || !lossPlot || !bodePlot) return;
     const snap = trace[Math.min(cursor, trace.length - 1)];
@@ -161,6 +176,24 @@
       { theta: freqTheta, magnitude: liveMag },
       { theta: freqTheta, magnitude: targetMag },
     );
+
+    // Time-domain error vs the target, with a zero baseline for reference.
+    errPlot?.update([
+      {
+        id: 'zero',
+        values: new Array(T_HORIZON).fill(0),
+        color: 'var(--text-faint, #ccc)',
+        style: 'line',
+        width: 1,
+      },
+      {
+        id: 'error',
+        values: errorAt(snap),
+        color: 'var(--accent-active, #d1495b)',
+        style: 'line',
+        width: 2,
+      },
+    ]);
 
     // Loss curve up through the cursor + ghost-trailing.
     const lossSeen: number[] = trace.slice(0, cursor + 1).map((s) => s.loss);
@@ -246,6 +279,16 @@
       yMax: bodeYMax,
       yLog: true,
     });
+    // Fixed symmetric y-range so the error panel doesn't rescale while
+    // scrubbing. At τ≈0 the learned response is ≈0, so the error is ≈ −g*(t)
+    // and |e(t)| peaks at max|g*| — that bounds every later snapshot.
+    const errYAbs = 1.1 * Math.max(1e-6, ...target.gStar.map(Math.abs));
+    errPlot = new TimeSeries(errSvg, {
+      xLabel: 'response time t',
+      yLabel: 'error  g(t) − g*(t)',
+      yMin: -errYAbs,
+      yMax: errYAbs,
+    });
     startTraining();
   });
 
@@ -274,6 +317,15 @@
       </div>
       <svg bind:this={bodeSvg}></svg>
     </div>
+  </div>
+
+  <div class="widget-panel widget-panel--error">
+    <div class="widget-panel-header">
+      time-domain error &nbsp;—&nbsp;
+      <span class="legend-swatch legend-swatch--live"></span>
+      g(t) − g*(t), the residual whose squared sum is L(τ)
+    </div>
+    <svg bind:this={errSvg}></svg>
   </div>
 
   <div class="widget-panel widget-panel--loss">
@@ -309,7 +361,10 @@
       Scrub the slider to watch the network learn one frequency at a time:
       every cliff is the network "discovering" the next mode of the
       target, visible as the solid learned curve rising to meet the
-      dashed target at a new resonance.
+      dashed target at a new resonance. The time-domain error panel shows
+      the same descent from the other side — the residual
+      g(t) − g*(t) starts as the full target signal and each cliff
+      flattens another stretch of it onto the zero line.
     </p>
   </div>
 </div>
@@ -330,19 +385,23 @@
     display: block;
   }
   .widget-panel--zplane {
-    aspect-ratio: 1 / 1;
     min-width: 0;
   }
   .widget-panel--bode {
-    aspect-ratio: 16 / 11;
     min-width: 0;
   }
   .widget-panel--loss {
     min-width: 0;
   }
+  .widget-panel--error {
+    min-width: 0;
+  }
   .widget-panel--loss :global(svg) {
     /* keep loss curve short so it doesn't dominate the layout */
     max-height: 180px;
+  }
+  .widget-panel--error :global(svg) {
+    max-height: 200px;
   }
   .widget-row--top {
     display: grid;
@@ -352,7 +411,7 @@
   @media (min-width: 760px) {
     .widget-row--top {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
-      align-items: stretch;
+      align-items: start;
     }
   }
   .staircase-controls input[type='range'] {
@@ -366,6 +425,7 @@
   }
   .widget-panel--bode .widget-panel-header,
   .widget-panel--zplane .widget-panel-header,
+  .widget-panel--error .widget-panel-header,
   .widget-panel--loss .widget-panel-header {
     font-size: 12.5px;
   }

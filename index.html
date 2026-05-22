@@ -60,6 +60,7 @@
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">5</span>Cancellation is a saddle</a></li>
         <li><a href="#sec-escape" data-toc-target="sec-escape"><span class="toc-num">6</span>Escape rates and the order of modes</a></li>
         <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
+        <li><a href="#sec-spiral" data-toc-target="sec-spiral"><span class="toc-num">8</span>Lines and spirals</a></li>
         <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
@@ -118,8 +119,10 @@
           $$h_{t+1} = W h_t + b\, x_t, \qquad y_t = c^\top h_t.$$
         </div>
 
+        <div id="widget-network-schema" class="widget-slot"></div>
+
         <p>
-          The saddle-to-saddle picture of learning gives us a recipe. To 
+          The saddle-to-saddle picture of learning gives us a recipe. To
           understand the learning dynamics of this system, we must
           find the saddles and the modes that emerge when a saddle is passed.
           So what are they?
@@ -296,26 +299,21 @@
         </p>
 
         $$\hat{y}_t \;=\; \alpha_k\,\beta_k\;\phi_k(t)
-          \;+\;\underbrace{\sum_{j \neq k} r_j\,\phi_j(t)}_{\text{other modes}}.$$
+          \;+\;\underbrace{\sum_{j \neq k} r_j\,\phi_j(t)}_{\text{other modes}},$$
 
         <p>
-          A critical point of the full loss requires the gradient
-          to vanish in <em>every</em> parameter direction — all the
-          $\alpha_j, \beta_j$, and the pole locations $p_j$, for every
-          mode $j$. We are not going to verify all of those at once.
-          Instead we adopt a hunting strategy: look for points where
-          the other modes are <em>already</em> at their own critical
-          points (a one-mode-at-a-time best fit), and check whether
-          $(\alpha_k, \beta_k)$ for some specific mode $k$ is also at
-          a critical point. Anything we find this way is a critical
-          point of the full system.
+          where $\phi_k(t) = \sum_{s=0}^{t-1} p_k^{\,t-1-s}\, x_s$
+          is mode $k$'s response to the input — the input convolved
+          with the pure exponential $p_k^{\,s}$ that mode $k$ rings
+          at. (This is just the $r_k\,p_k^{\,s}$ term of the impulse
+          response from § 3, applied to the input stream.)
         </p>
 
         <p>
-          So fix the other modes at their critical-point values
-          (whatever those are — the data picks them) and restrict to
-          the $(\alpha_k, \beta_k)$ subspace. The squared-error loss
-          becomes
+          For a moment let us restrict our attention to this one mode $k$,
+          and consider what we should do holding the other modes fixed.
+          Looking only at the $(\alpha_k, \beta_k)$ subspace, the squared-error loss
+          for those parameters becomes
         </p>
 
         $$\mathcal{L}(\alpha_k,\,\beta_k)
@@ -325,9 +323,6 @@
         <p>
           where $r_k^{\ast}$ stands for the <em>target residue</em> — a
           single number summarising what the data wants mode $k$ to be.
-          (We will unpack it properly in § 6; for now read it as "the
-          part of the target signal at mode $k$'s frequency, after
-          subtracting everything the other modes already explain".)
           This loss is the recurrent analogue of what we see for
           feedforward networks, where the loss for mode $k$ is
           $\mathcal{L} = \frac{1}{2}\|\sigma^{\ast} - u\,v\|^2$
@@ -353,8 +348,8 @@
         </p>
 
         $$H \;=\; \begin{pmatrix}
-          0 & r_k^{\ast} \\[4pt]
-          r_k^{\ast} & 0
+          0 & -r_k^{\ast} \\[4pt]
+          -r_k^{\ast} & 0
           \end{pmatrix}$$
 
         <p>
@@ -366,20 +361,12 @@
         </p>
 
         <p>
-          By construction this is a critical point of the full loss
-          (the other modes were at their critical points, and we just
-          showed $(\alpha_k, \beta_k)$ are too). It is a saddle of the
-          full loss as long as the other modes were at minima of their
-          restricted losses, which they generically are. So the
-          hunting strategy works: <em>every cancellation point
-          $r_k = 0$ — with the other modes at their best-fit values —
-          is a saddle of the full loss landscape.</em>
-        </p>
-
-        <p>
-          What this doesn't tell us is which saddle the dynamics
-          actually visits, or in what order — that is the dynamical
-          question, and we take it up next.
+          This isn't just an artefact of restricting to one mode. In
+          § 6 we will show that the full Hessian in $(c, b)$ space has
+          exactly this block structure — each mode contributes a
+          saddle direction, and the modes with the largest cross-energies
+          escape first. But which modes escape fastest, and why? That
+          is the dynamical question we turn to next.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
@@ -413,7 +400,7 @@
 
         <ul>
           <li>
-            $J_k \;=\; \mathbb{E}\!\left[\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_k(t)\right]$
+            $J_k \;=\; \tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_k(t)$ (averaged over training data)
             is the <em>cross-energy</em>: the projection of the
             unexplained residual onto mode $k$'s response. It measures
             how much of the target this mode could still pick up.
@@ -421,7 +408,7 @@
             weighted by how strongly the input excites that frequency.
           </li>
           <li>
-            $S_k^{(x)} \;=\; \mathbb{E}\!\left[\tfrac{1}{T}\textstyle\sum_t |\phi_k(t)|^2\right]$
+            $S_k^{(x)} \;=\; \tfrac{1}{T}\textstyle\sum_t |\phi_k(t)|^2$ (averaged over training data)
             is the <em>input energy</em> at mode $k$: how loudly the
             input drives this mode under the data distribution.
           </li>
@@ -434,90 +421,73 @@
         </p>
 
         <p>
-          Gradient flow gives $\dot\alpha_k = -\partial\mathcal{L}/\partial\alpha_k$
-          and $\dot\beta_k = -\partial\mathcal{L}/\partial\beta_k$:
+          Under gradient flow on $(c, b)$ with poles fixed, the Hessian
+          at the saddle $(c, b) = (0, 0)$ has the same block structure
+          as Saxe et al.'s deep linear
+          networks:<d-footnote>
+          <strong>Derivation.</strong>
+          At the saddle all $\alpha_k = \beta_k = 0$, so
+          $c = \sum_k \alpha_k\,u_k = 0$ and $h_t = 0$. This makes
+          $\partial\hat{y}_t/\partial W = 0$: the $W$-gradient vanishes,
+          the eigenvectors are frozen, and the escape is entirely
+          in $(c, b)$.
+          <br><br>
+          <em>The $c$-gradient.</em>
+          $\;\dot{c} = \tfrac{1}{T}\sum_t \Delta_t\,h_t$ with
+          $h_t = \sum_j \beta_j\,\phi_j(t)\,v_j$. Projecting onto
+          mode $k$:
+          $$\dot{\alpha}_k \;=\; \dot{c}^\top v_k
+          \;=\; \sum_j (v_j^\top v_k)\;\beta_j
+          \;\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_j(t).$$
+          <em>The $b$-gradient.</em>
+          By the same logic, using
+          $(W^{t-1-s})^\top c = \sum_j p_j^{t-1-s}\,\alpha_j\,u_j$:
+          $$\dot{\beta}_k \;=\; u_k^\top \dot{b}
+          \;=\; \sum_j (u_k^\top u_j)\;\alpha_j
+          \;\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_j(t).$$
+          At the saddle ($\alpha_k = \beta_k = 0$ for all $k$),
+          both expressions vanish — it is a true critical point.
+          The Hessian inherits the Saxe block form with
+          cross-coupling matrix $M = -\sum_k J_k\,v_k\,u_k^\top$.
+          <br><br>
+          <em>Normal $W$.</em>
+          The eigenvectors are orthonormal, so
+          $M^\top M = \sum_k J_k^2\,u_k\,u_k^\top$ and the singular
+          values are $|J_k|$ — modes decouple exactly.
+          <br><br>
+          <em>Non-normal $W$.</em>
+          The Gram matrix $\Gamma_{jk} = v_j^\top v_k$ couples
+          different modes in the SVD of $M$. A single isolated mode
+          contributes $|J_k|\,\|v_k\|\,\|u_k\|$ to the escape rate —
+          non-normality boosts learning speed.
+          </d-footnote>
         </p>
 
-        $$\dot\alpha_k \;=\; J_k\,\beta_k \;-\; S_k^{(x)}\,\alpha_k\beta_k^{2},$$
-
-        $$\dot\beta_k \;=\; J_k\,\alpha_k \;-\; S_k^{(x)}\,\alpha_k^{2}\beta_k.$$
-
-        <p>
-          Near the origin the cubic terms are higher-order; the linearisation is
-        </p>
-
-        $$\begin{pmatrix}\dot\alpha_k \\ \dot\beta_k\end{pmatrix}
-          \;=\;
-          \begin{pmatrix} 0 & J_k \\ J_k & 0 \end{pmatrix}
-          \begin{pmatrix}\alpha_k \\ \beta_k\end{pmatrix}.$$
+        $$H \;=\; \begin{pmatrix} 0 & M \\ M^{\!\top} & 0 \end{pmatrix},
+          \qquad M \;=\; -\textstyle\sum_k J_k\,v_k\,u_k^{\!\top}.$$
 
         <p>
-          The eigenvalues are $\pm J_k$, with eigenvectors $\alpha_k = +\beta_k$
-          (unstable, rate $+J_k$) and $\alpha_k = -\beta_k$ (stable, rate
-          $-J_k$). A perturbation of size $\epsilon_0$ along the unstable
-          direction grows as
-        </p>
-
-        $$\epsilon(\tau) \;=\; \epsilon_0\,e^{\,|J_k|\,\tau},$$
-
-        <p>
-          and the saturation only kicks in once $\alpha_k\beta_k$
-          approaches $J_k/S_k^{(x)}$ — which, looking back at the loss,
-          is the location of the new minimum. So mode $k$ escapes its
-          saddle at rate $|J_k|$ and settles at residue
-          $r_k = J_k / S_k^{(x)}$.
+          The escape rates from the saddle are the singular values of
+          $M$. For normal $W$ (e.g. symmetric), the eigenvectors are
+          orthonormal and the singular values are simply
+          $|J_k|$ — each mode escapes independently at a rate set by
+          its cross-energy. The mode with the largest $|J_k|$ escapes
+          first and settles at residue $r_k = J_k / S_k^{(x)}$. The
+          same structure recurs at each subsequent saddle with
+          cross-energies recomputed against the updated residual.
         </p>
 
         <p>
-          The dwell time near the rank-$\rho$ saddle — the time from
-          entering an $\epsilon$-ball of radius $\epsilon_0$ until the
-          next mode's perturbation grows to size $\epsilon_{\mathrm{exit}}$ —
-          is
-        </p>
-
-        $$T_{\rho} \;=\; \frac{1}{|J_{\rho+1}|}\,
-          \log\!\frac{\epsilon_{\mathrm{exit}}}{\epsilon_0}.$$
-
-        <p>
-          So the order is set by the cross-energies $|J_k|$, and the
-          gaps between $|J_k|$ for different modes determine how clean
-          the staircase looks. Two modes with similar $|J_k|$ activate
-          almost simultaneously and blur their steps; well-separated
-          $|J_k|$ give sharp, well-spaced steps.
-        </p>
-
-        <p>
-          Two consequences worth noting:
-        </p>
-
-        <ul>
-          <li>
-            <strong>The input distribution reshapes the ordering.</strong>
-            $J_k$ folds in input energy at mode $k$'s frequency. A mode
-            at a frequency where the input is weak has a small $J_k$
-            and a long dwell time, even if the target has a lot of
-            content there. Modes the network <em>can't hear</em> are
-            learned last (or never).
-          </li>
-          <li>
-            <strong>The staircase has logarithmic-in-initialisation
-            timing.</strong> The dwell time depends on $\log(1/\epsilon_0)$:
-            smaller initialisation means longer plateaus, not unboundedly
-            so — the dependence is logarithmic. This is the standard
-            saddle-to-saddle scaling.<sup class="cite"><a href="#ref-jacot2021">4</a></sup>
-          </li>
-        </ul>
-
-        <p>
-          A subtlety we have glossed: the above linearisation lives in
-          the $(\alpha_k, \beta_k)$ coordinates, with all other modal
-          coordinates held fixed. The full system has $(W, b, c)$ as
-          parameters, and the natural metric on this space differs from
-          the flat metric on $(\alpha_k, \beta_k)$ by smooth factors
-          involving the eigenvector geometry of $W$. These factors are
-          $O(1)$ at generic saddles and rescale $|J_k|$ by a
-          mode-dependent constant — they do not change the ordering or
-          the logarithmic scaling.<sup class="cite"><a href="#ref-zhang2026">6</a></sup>
+          So the order in which modes activate is set by
+          $|J_k|$, and the gaps between cross-energies determine how
+          clean the staircase looks. Two modes with similar $|J_k|$
+          escape almost simultaneously and blur their steps;
+          well-separated $|J_k|$ give sharp, well-spaced plateaux.
+          Because $J_k$ folds in the input energy at mode $k$'s
+          frequency, the data distribution reshapes the ordering —
+          a mode the network <em>can't hear</em> (weak input at that
+          frequency) is learned last, regardless of how much of the
+          target lives there.
         </p>
       </section>
 
@@ -536,6 +506,46 @@
 
         <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
 
+      </section>
+
+      <section id="sec-spiral" class="article-section">
+        <p class="section-number">§ 8</p>
+        <h2>Direction in ℂ: lines and spirals</h2>
+
+        <p class="lede">
+          §7 showed the staircase: each cliff in the loss is one pole–zero
+          pair separating in the complex plane. This section zooms into a
+          single one of those separations and asks what <em>shape</em> it
+          traces.
+        </p>
+
+        <p>
+          Train an actual recurrent network with one target mode held silent
+          at the start — a pole and a zero sitting on top of each other, a
+          cancellation saddle. Run gradient descent and watch the zero come
+          off the pole. For a real target pole it leaves along a straight
+          line. For a complex target pole the residue's phase turns as it
+          grows, and the zero swings as it separates — a spiral.
+        </p>
+
+        <p>
+          The escape is not arbitrary. The separation flow predicts that near
+          the saddle the separation grows along a fixed direction
+          $e^{i\arg\lambda/2}$ in $\mathbb{C}$, at rate $|\lambda|$. The widget
+          measures $|\lambda|$ and $\arg\lambda$ from the network's own early
+          trajectory and draws the predicted escape — the real, slightly messy
+          training run lands on the clean prediction. The complex pole also
+          leaves a fingerprint in time: a transient wobble in the mode's
+          output, at frequency $|\lambda|\sin(\arg\lambda/2)$, as it settles in.
+        </p>
+
+        <p>
+          Dial the target pole from the real axis up into the complex plane,
+          press train, and watch the separation turn from a line into a
+          spiral.
+        </p>
+
+        <div id="widget-spiral-separation" class="widget-slot widget-l-middle"></div>
       </section>
 
       <section id="sec-references" class="article-section">
@@ -585,7 +595,7 @@
     <footer class="article-footer">
       <div class="footer-inner">
         <p class="footer-note">
-          Draft for review. All §§ 1–6 figures are functional, pending a
+          Draft for review. All §§ 1–8 figures are functional, pending a
           full read-through pass.
         </p>
       </div>

@@ -27,11 +27,24 @@ export interface ZPlanePoint {
   draggable?: boolean;
 }
 
+export interface ZPlaneTrail {
+  /** Symbolic id — keys DOM updates. */
+  id: string;
+  /** Polyline vertices in raw complex coordinates. */
+  points: Complex[];
+  /** Stroke color. Defaults to a muted gray. */
+  color?: string;
+  /** Optional SVG dash pattern (e.g. '4 3'). */
+  dash?: string;
+}
+
 export interface ZPlaneOptions {
   width?: number;
   height?: number;
   /** Half-range of the viewport in each axis. Default 1.3. */
   range?: number;
+  /** Viewport center in complex coords. Default origin. Use to zoom into a region. */
+  center?: Complex;
   /** Called whenever a draggable point is moved by the user. */
   onDrag?: (id: string, z: Complex) => void;
   /** Called when a drag gesture ends. */
@@ -50,6 +63,7 @@ export class ZPlane {
   private yScale!: d3.ScaleLinear<number, number>;
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
   private points: ZPlanePoint[] = [];
+  private trails: ZPlaneTrail[] = [];
 
   constructor(svgEl: SVGSVGElement, opts: ZPlaneOptions = {}) {
     this.svg = d3.select(svgEl);
@@ -80,8 +94,10 @@ export class ZPlane {
     const margin = 24;
     const inner = this.width - 2 * margin;
     const r = this.opts.range;
-    this.xScale = d3.scaleLinear().domain([-r, r]).range([margin, margin + inner]);
-    this.yScale = d3.scaleLinear().domain([-r, r]).range([margin + inner, margin]); // flipped: math-up
+    const cx = this.opts.center?.re ?? 0;
+    const cy = this.opts.center?.im ?? 0;
+    this.xScale = d3.scaleLinear().domain([cx - r, cx + r]).range([margin, margin + inner]);
+    this.yScale = d3.scaleLinear().domain([cy - r, cy + r]).range([margin + inner, margin]); // flipped: math-up
 
     this.root = this.svg.append('g').attr('class', 'zplane-root');
   }
@@ -89,6 +105,12 @@ export class ZPlane {
   private drawStatic(): void {
     const { root, xScale, yScale } = this;
     const r = this.opts.range;
+    const cx = this.opts.center?.re ?? 0;
+    const cy = this.opts.center?.im ?? 0;
+    const xLo = cx - r;
+    const xHi = cx + r;
+    const yLo = cy - r;
+    const yHi = cy + r;
 
     // Background grid (axes through origin + light gridlines).
     const grid = root.append('g').attr('class', 'zplane-grid');
@@ -100,8 +122,8 @@ export class ZPlane {
       .attr('class', 'gridline')
       .attr('x1', (d) => xScale(d))
       .attr('x2', (d) => xScale(d))
-      .attr('y1', yScale(-r))
-      .attr('y2', yScale(r));
+      .attr('y1', yScale(yLo))
+      .attr('y2', yScale(yHi));
     grid
       .selectAll('line.y')
       .data(ticks)
@@ -109,15 +131,15 @@ export class ZPlane {
       .attr('class', 'gridline')
       .attr('y1', (d) => yScale(d))
       .attr('y2', (d) => yScale(d))
-      .attr('x1', xScale(-r))
-      .attr('x2', xScale(r));
+      .attr('x1', xScale(xLo))
+      .attr('x2', xScale(xHi));
 
     // Axes through the origin.
     root
       .append('line')
       .attr('class', 'axis-line')
-      .attr('x1', xScale(-r))
-      .attr('x2', xScale(r))
+      .attr('x1', xScale(xLo))
+      .attr('x2', xScale(xHi))
       .attr('y1', yScale(0))
       .attr('y2', yScale(0))
       .attr('stroke', '#999');
@@ -126,8 +148,8 @@ export class ZPlane {
       .attr('class', 'axis-line')
       .attr('x1', xScale(0))
       .attr('x2', xScale(0))
-      .attr('y1', yScale(-r))
-      .attr('y2', yScale(r))
+      .attr('y1', yScale(yLo))
+      .attr('y2', yScale(yHi))
       .attr('stroke', '#999');
 
     // Unit circle.
@@ -141,7 +163,7 @@ export class ZPlane {
     // Axis labels.
     root
       .append('text')
-      .attr('x', xScale(r) - 6)
+      .attr('x', xScale(xHi) - 6)
       .attr('y', yScale(0) - 6)
       .attr('text-anchor', 'end')
       .attr('font-size', 10)
@@ -150,10 +172,13 @@ export class ZPlane {
     root
       .append('text')
       .attr('x', xScale(0) + 6)
-      .attr('y', yScale(r) + 12)
+      .attr('y', yScale(yHi) + 12)
       .attr('font-size', 10)
       .attr('fill', '#888')
       .text('Im');
+
+    // Trajectory trails — drawn beneath the markers.
+    root.append('g').attr('class', 'trails');
 
     // Marker container — drawn on top.
     root.append('g').attr('class', 'markers');
@@ -246,10 +271,45 @@ export class ZPlane {
     }
   }
 
+  /** Draw polyline trails (e.g. a swept trajectory) beneath the markers. */
+  setTrails(trails: ZPlaneTrail[]): void {
+    this.trails = trails;
+    const { xScale, yScale } = this;
+    const line = d3
+      .line<Complex>()
+      .x((d) => xScale(d.re))
+      .y((d) => yScale(d.im));
+    const g = this.root.select<SVGGElement>('g.trails');
+    const join = g
+      .selectAll<SVGPathElement, ZPlaneTrail>('path.trail')
+      .data(trails, (d) => d.id);
+    join.exit().remove();
+    join
+      .enter()
+      .append('path')
+      .attr('class', 'trail')
+      .attr('fill', 'none')
+      .attr('stroke-linecap', 'round')
+      .attr('stroke-linejoin', 'round')
+      .merge(join)
+      .attr('d', (d) => line(d.points))
+      .attr('stroke', (d) => d.color ?? '#888')
+      .attr('stroke-width', 1.8)
+      .attr('stroke-dasharray', (d) => d.dash ?? null);
+  }
+
+  /** Recenter (and optionally rescale) the viewport, then redraw. */
+  setView(center: Complex, range?: number): void {
+    this.opts.center = center;
+    if (range !== undefined) this.opts.range = range;
+    this.resize();
+  }
+
   resize(): void {
     this.svg.selectAll('*').remove();
     this.initLayout();
     this.drawStatic();
+    if (this.trails.length) this.setTrails(this.trails);
     if (this.points.length) this.update(this.points);
   }
 }
