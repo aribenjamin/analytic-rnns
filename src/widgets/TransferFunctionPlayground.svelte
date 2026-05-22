@@ -14,6 +14,7 @@
   import { ZPlane, type ZPlanePoint } from '../lib/plots/ZPlane';
   import { BodePlot } from '../lib/plots/BodePlot';
   import { TimeSeries } from '../lib/plots/TimeSeries';
+  import NetworkDiagram from '../lib/NetworkDiagram.svelte';
   import {
     type ModalSystem,
     evalH,
@@ -161,8 +162,8 @@
     zPlane = new ZPlane(zSvg, { onDrag });
     bode = new BodePlot(bodeSvg, { yLog: true, yMin: 0.05, yMax: 50 });
     impulse = new TimeSeries(impulseSvg, {
-      xLabel: 'time step t',
-      yLabel: 'h_t (impulse response)',
+      xLabel: 'time step',
+      yLabel: 'g (response)',
     });
     redraw();
   });
@@ -183,12 +184,39 @@
       <svg bind:this={bodeSvg}></svg>
     </div>
   </div>
-  <div class="widget-row widget-row--two">
-    <div class="widget-panel">
-      <div class="widget-panel-header">impulse response</div>
-      <svg bind:this={impulseSvg}></svg>
+  <div class="widget-panel widget-panel--flow">
+    <div class="widget-panel-header">impulse response: input → network → output</div>
+    <div class="flow-grid">
+      <div class="flow-stage flow-stage--input">
+        <div class="flow-stage-label">input&nbsp;&nbsp;<em>x<sub>t</sub></em>&nbsp;=&nbsp;δ<sub>t</sub></div>
+        <svg class="flow-impulse-svg" viewBox="0 0 120 100" preserveAspectRatio="xMidYMid meet">
+          <line x1="16" y1="74" x2="112" y2="74" stroke="var(--text-muted)" stroke-width="1.2" />
+          <path d="M108,70 L115,74 L108,78 Z" fill="var(--text-muted)" />
+          <text x="113" y="92" text-anchor="end" font-family="var(--font-serif)" font-style="italic" font-size="11" fill="var(--text-muted)">t</text>
+          <line x1="28" y1="74" x2="28" y2="22" stroke="var(--accent-pole)" stroke-width="2.4" />
+          <circle cx="28" cy="22" r="3.6" fill="var(--accent-pole)" />
+          <text x="28" y="13" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--text-soft)">1</text>
+          <circle cx="44" cy="74" r="2.2" fill="var(--bg)" stroke="var(--text-muted)" stroke-width="1" />
+          <circle cx="58" cy="74" r="2.2" fill="var(--bg)" stroke="var(--text-muted)" stroke-width="1" />
+          <circle cx="72" cy="74" r="2.2" fill="var(--bg)" stroke="var(--text-muted)" stroke-width="1" />
+          <circle cx="86" cy="74" r="2.2" fill="var(--bg)" stroke="var(--text-muted)" stroke-width="1" />
+          <circle cx="100" cy="74" r="2.2" fill="var(--bg)" stroke="var(--text-muted)" stroke-width="1" />
+        </svg>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-stage flow-stage--net">
+        <div class="flow-stage-label">the network</div>
+        <div class="flow-diagram"><NetworkDiagram compact /></div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-stage flow-stage--output">
+        <div class="flow-stage-label">response&nbsp;&nbsp;<em>g<sub>s</sub></em></div>
+        <svg bind:this={impulseSvg}></svg>
+      </div>
     </div>
-    <div class="widget-controls">
+  </div>
+  <div class="widget-controls">
+    <div class="controls-strip">
       <div class="widget-btn-row">
         <button class="widget-btn" on:click={addPolePair} disabled={polePairs.length >= 3}>+ pole pair</button>
         <button class="widget-btn" on:click={removePolePair} disabled={polePairs.length <= 1}>− pole pair</button>
@@ -197,11 +225,11 @@
         <input type="checkbox" checked={zeroPair.real.active} on:change={toggleZero} />
         add a zero pair
       </label>
-      <p class="widget-hint">
-        Drag a pole — the closer it sits to the unit circle, the sharper the
-        resonance. Add a zero and drag it onto a pole to silence the mode.
-      </p>
     </div>
+    <p class="widget-hint">
+      Drag a pole — the closer it sits to the unit circle, the sharper the
+      resonance. Add a zero and drag it onto a pole to silence the mode.
+    </p>
   </div>
 </div>
 
@@ -210,5 +238,93 @@
     width: 100%;
     height: auto;
     display: block;
+  }
+
+  /* Impulse-response panel: input → network → response, read left to right. */
+  .flow-grid {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .flow-stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .flow-stage--input {
+    flex: 0.58 1 0;
+  }
+  .flow-stage--net {
+    flex: 1.42 1 0;
+  }
+  .flow-stage--output {
+    flex: 1.4 1 0;
+  }
+
+  /* Centre the compact input schematic against the taller response plot. */
+  .flow-impulse-svg {
+    margin: auto;
+    max-width: 240px;
+  }
+
+  .flow-stage-label {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .flow-stage-label em {
+    font-family: var(--font-serif);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+  }
+
+  /* Auto margins centre the wide-aspect schematic against the taller plots;
+     the max-width keeps it sane once the stages stack on mobile. */
+  .flow-diagram {
+    margin: auto;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .flow-diagram :global(.network-diagram-svg) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .flow-arrow {
+    flex: 0 0 auto;
+    align-self: center;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-muted);
+  }
+
+  .controls-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+  }
+
+  @media (max-width: 720px) {
+    .flow-grid {
+      flex-direction: column;
+    }
+    .flow-stage {
+      flex: 0 0 auto;
+    }
+    .flow-arrow {
+      transform: rotate(90deg);
+    }
   }
 </style>
