@@ -42,10 +42,13 @@ public/data/ # gzipped JSON trajectories for precomputed heavy demos
 - **distill-template loaded from CDN**, not a local fork.
 - **D3 v7 for SVG plots.** Canvas where SVG cost is too high.
 - **KaTeX auto-render** for math.
-- **No eigendecomposition library** for Phase A. All widgets are parameterised
-  in **modal coordinates** (poles, residues) directly — this avoids eigen-js /
-  WASM / complex-eigenvalue extraction entirely. Phase B/C may need (W, b, c)
-  gradient flow; that's when we reopen eigen-js vs hand-rolled-QR.
+- **Eigendecomposition is hand-rolled for n ≤ 8** in `src/lib/eigSmall.ts`
+  (Faddeev–LeVerrier char poly + Durand–Kerner roots via `polyRoots.ts`;
+  residues by solving a Vandermonde system from the impulse-response head).
+  Phase A widgets stay in modal coordinates and don't touch it; the §7
+  <DecodedStaircase> direct-(W, b, c) student is the one consumer. No
+  eigen-js / WASM is loaded — don't bring those in unless the hand-rolled
+  path provably can't satisfy.
 - **Mobile is desktop-first / mobile-acceptable.** Each widget includes a
   max-width: 720px CSS branch; verify at 375 px before declaring done.
 - **Conjugate-locking** in ZPlane.ts: dragging one pole of a complex pair moves
@@ -87,12 +90,20 @@ this preview environment the screenshot capture is decoupled from
 rectangle even when it rendered correctly. A blank screenshot is not evidence
 of a broken widget — check `preview_snapshot` before concluding anything.
 
-## Phase A status
-§4 <TransferFunctionPlayground> and §5 <ResidueKnob> are shipped. Remaining
-Phase A widgets in build order: <FeedforwardStaircase> (§1),
-<SaddleLandscape> (§6), <DecodedStaircase> (§7). After Phase A, do a full
-read-through with widgets in place and expect a substantial revision pass —
-the Phase A checkpoint defined in the plan's Iteration Plan section.
+## Phase status
+Shipped: §1 <FeedforwardStaircase>, §2 <RecurrentRefresher>, §3
+<NetworkSchema>/<SpiralSeparation>, §4 <TransferFunctionPlayground>, §5
+<ResidueKnob>, §6 <SaddleLandscape>, §7 <DecodedStaircase>.
+
+§7 is the only Phase-B widget on disk: its student is a direct (W, b, c)
+linear RNN trained via BPTT on a per-run-random target with a σ₀ slider.
+Eigenvalues of W drift during training; the staircase narrative is now
+empirical/typical rather than guaranteed by fixed-pole modal flow. All
+other widgets remain in modal coordinates.
+
+After this initial pass, do a full read-through with widgets in place and
+expect a substantial revision pass — the Phase A checkpoint defined in
+the plan's Iteration Plan section.
 
 ## Conventions
 TypeScript strict mode. No any. New numerical code adds a .test.ts.
