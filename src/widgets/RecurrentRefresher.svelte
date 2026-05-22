@@ -15,7 +15,10 @@
 
   This sets up the "eigenvalues feel like the right object" intuition that
   §3 (transfer functions) then refines by introducing zeros and residues.
-  Deliberately no b, c, no input — that's §3's job.
+  Deliberately no b, c, no input — only the internal state h evolves here,
+  never the readout y; a scope note above the panels makes that explicit.
+  The network schematic that motivates the setup is its own widget
+  (NetworkSchema), mounted directly after the §2 equation.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -78,80 +81,14 @@
 </script>
 
 <div class="widget widget--recurrent">
-  <div class="widget-panel widget-panel--schematic">
-    <div class="widget-panel-header">the network we mean</div>
-    <svg class="schematic-svg" viewBox="0 -10 600 180" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <marker
-          id="rr-arrow"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)" />
-        </marker>
-        <marker
-          id="rr-arrow-recur"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-pole)" />
-        </marker>
-      </defs>
-
-      <line x1="100" y1="92" x2="258" y2="92" stroke="var(--text-muted)" stroke-width="1.6" marker-end="url(#rr-arrow)" />
-      <line x1="342" y1="92" x2="500" y2="92" stroke="var(--text-muted)" stroke-width="1.6" marker-end="url(#rr-arrow)" />
-
-      <path
-        class="schematic-recur"
-        d="M 270 50 C 250 -4, 350 -4, 330 50"
-        fill="none"
-        stroke="var(--accent-pole)"
-        stroke-width="1.6"
-        marker-end="url(#rr-arrow-recur)"
-      />
-      <text x="300" y="2" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="15" fill="var(--accent-pole)">W</text>
-
-      <circle cx="100" cy="92"  r="13" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
-      <text x="100" y="97" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">x</text>
-      <text x="100" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">input</text>
-
-      <g class="schematic-hidden">
-        <circle cx="300" cy="80" r="42" fill="var(--bg-elevated)" stroke="var(--text-soft)" stroke-width="1.4" />
-        <circle cx="284" cy="64" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="312" cy="66" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="298" cy="80" r="4.5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3" />
-        <circle cx="318" cy="86" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="282" cy="90" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <circle cx="302" cy="100" r="4.5" fill="var(--bg)" stroke="var(--text-soft)" stroke-width="1.1" />
-        <text x="300" y="80" text-anchor="middle" dy="-25" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">h</text>
-        <text x="300" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">n neurons</text>
-      </g>
-
-      <circle cx="500" cy="92" r="13" fill="var(--bg-elevated)" stroke="var(--accent-active)" stroke-width="1.6" />
-      <text x="500" y="97" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text)">y</text>
-      <text x="500" y="137" text-anchor="middle" font-family="var(--font-sans)" font-size="10" letter-spacing="0.04em" fill="var(--text-muted)">readout</text>
-
-      <text x="179" y="82" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text-soft)">b</text>
-      <text x="421" y="82" text-anchor="middle" font-family="var(--font-serif)" font-style="italic" font-size="14" fill="var(--text-soft)">c<tspan baseline-shift="super" font-size="10">⊤</tspan></text>
-    </svg>
-    <p class="schematic-caption">
-      Input <em>x<sub>t</sub></em> drives the recurrent population
-      <em>h<sub>t</sub></em> through the input weights <em>b</em>; the
-      population feeds itself through <em>W</em>; the readout <em>c</em>
-      <span class="ts">⊤</span> reduces the population back to a scalar
-      <em>y<sub>t</sub></em>. The natural <em>modes</em> of this network
-      are set by the eigenvalues of <em>W</em>; that's what the panels
-      below let you play with.
-    </p>
-  </div>
+  <p class="scope-note">
+    These panels show the network's <strong>internal state</strong> only —
+    the population <em>h</em> evolving under its own recurrence,
+    <span class="eqn"><em>h<sub>t+1</sub></em>&nbsp;=&nbsp;<em>W</em>&thinsp;<em>h<sub>t</sub></em></span>.
+    They do not show the output
+    <span class="eqn eqn--off"><em>y<sub>t</sub></em>&nbsp;=&nbsp;<em>c</em><sup>⊤</sup><em>h<sub>t</sub></em></span>;
+    that&nbsp;readout&nbsp;enters&nbsp;in&nbsp;§&nbsp;3.
+  </p>
 
   <div class="widget-row widget-row--two">
     <div class="widget-panel widget-panel--zplane">
@@ -164,7 +101,7 @@
       </div>
     </div>
     <div class="widget-panel widget-panel--phase">
-      <div class="widget-panel-header">free-evolution trajectory of h(t)</div>
+      <div class="widget-panel-header">free evolution of the internal state h(t)</div>
       <svg bind:this={phaseSvg}></svg>
     </div>
   </div>
@@ -250,36 +187,38 @@
     box-shadow: 0 1px 2px rgba(58, 47, 30, 0.06);
   }
 
-  .widget-panel--schematic {
-    width: 100%;
-  }
-
-  .widget-panel--schematic .schematic-svg {
-    max-width: 540px;
-    margin: 0 auto var(--space-2);
-  }
-
-  .schematic-caption {
+  .scope-note {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: 12.5px;
-    line-height: 1.55;
+    font-size: 13px;
+    line-height: 1.65;
     color: var(--text-soft);
-    text-align: center;
-    max-width: 540px;
-    margin-left: auto;
-    margin-right: auto;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-subtle);
+    border-radius: 6px;
+    border-left: 2px solid var(--accent-pole);
   }
 
-  .schematic-caption em {
+  .scope-note strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .scope-note em {
     font-family: var(--font-serif);
     font-style: italic;
     color: var(--text);
   }
 
-  .schematic-caption .ts {
-    vertical-align: super;
-    font-size: 9px;
+  .scope-note .eqn {
+    font-family: var(--font-serif);
+    font-size: 14.5px;
+    white-space: nowrap;
+  }
+
+  .scope-note .eqn--off,
+  .scope-note .eqn--off em {
+    color: var(--text-muted);
   }
 
   .widget-controls--strip {
