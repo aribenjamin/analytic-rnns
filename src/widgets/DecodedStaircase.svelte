@@ -1,24 +1,29 @@
 <!--
-  §7 / Figure 5: the decoded staircase.
+  §7 / Figure 5: the decoded staircase — direct (W, b, c) training.
 
-  Trains a small recurrent network in modal (poles, residues = α·β) coordinates
-  via gradient flow on a multi-frequency impulse-response target.  Four
-  synced panels:
+  Trains a small linear SISO RNN parameterised by (W, b, c) via BPTT on a
+  multi-frequency impulse-response target. Each run picks a fresh random
+  target (random poles + random residue magnitudes) and a fresh random
+  small-Gaussian initialisation of W, b, c; the slider sets the init
+  scale σ₀.
 
-    1.  z-plane — live pole positions, with target ghost markers and the
-        numerator zeros of the *current* system (so the reader can watch
-        each zero "leave" its pole as the corresponding mode activates).
-    2.  |H(e^{iθ})| — frequency response of the *current* system vs the
-        target. This is the "what is the network learning?" view: each
-        cliff in the loss adds a new peak to the magnitude response.
-    3.  Time-domain error e(t) = g(t) − g*(t) — the residual between the
-        learned and target impulse responses. This is the integrand of the
-        loss itself (L = ½ Σ_t e(t)²), so each cliff visibly flattens
-        another stretch of it toward zero.
-    4.  Loss curve (log y) — clean staircase descent, full-width below.
+  Pedagogically, the change from the Phase-A modal-coordinate version is
+  that the eigenvalues of W *drift* during training rather than sitting
+  at the target poles. The "each cliff is one pole–zero pair separating"
+  picture survives but is no longer guaranteed — it's now an empirical
+  observation about typical training runs.
 
-  The training runs in a Web Worker; the scrubber lets the reader step
-  through the recorded trajectory.
+  Four synced panels:
+
+    1.  z-plane — live eigenvalues of W (colored by mode), with ghost
+        target markers.
+    2.  |H(e^{iθ})| — frequency response of the live system vs target.
+    3.  Time-domain error e(t) = g(t) − g*(t).
+    4.  Loss curve (log y) — the staircase.
+
+  Training runs in a Web Worker; the scrubber lets the reader step
+  through recorded snapshots. The "new run" button reseeds both the
+  target and the init.
 -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
@@ -26,29 +31,34 @@
   import { TimeSeries } from '../lib/plots/TimeSeries';
   import { BodePlot } from '../lib/plots/BodePlot';
   import {
-    defaultTarget,
     toModalSystem,
     impulseResponse,
     type TraceSnapshot,
     type ModalTarget,
   } from '../lib/gradientFlow';
-  import { zeros as zerosOfSystem, frequencyResponse, evalH } from '../lib/transferFn';
+  import { randomTarget, totalDimOfModes } from '../lib/rnnTrain';
+  import { zeros as zerosOfSystem, evalH } from '../lib/transferFn';
   import { expi, abs as cabs } from '../lib/complex';
 
   const T_HORIZON = 160;
-  const target: ModalTarget = defaultTarget(T_HORIZON);
+  const TOTAL_DIM = 4;
 
-  // Hand-tuned for a clean four-cliff staircase in ~30k steps (see
-  // gradientFlow.ts comments). The worker runs this in well under a second
-  // even on a midrange laptop.
+  // Reactive controls
+  let initScaleLog = -2.5;
+  $: initScale = Math.pow(10, initScaleLog);
+  let runSeed = 0;
+
+  // The training config — fixed; only target, initScale, and seed change per
+  // run. Hand-tuned in the Phase-A modal version for a clean 30 k-step
+  // staircase; the same step count works for direct (W,b,c) at small init.
   const cfg = {
-    initScale: 5e-3,
-    seed: 2,
     dt: 2e-3,
     steps: 30000,
     snapshots: 240,
     rhoThreshold: 0.1,
   };
+
+  let target: ModalTarget = randomTarget({ totalDim: TOTAL_DIM, T: T_HORIZON, seed: runSeed });
 
   let trace: TraceSnapshot[] = [];
   let cursor = 0;
@@ -69,32 +79,20 @@
   const N_FREQ = 256;
   let targetMag: number[] = [];
   let freqTheta: number[] = [];
-  let bodeYMax = 10;
 
-  // Per-mode colors — picked to match the article's accent palette and to
-  // remain distinguishable on the z-plane and in the residue legend.
   const MODE_COLORS = ['#d1495b', '#edae49', '#66a182', '#2e4057'];
 
-  function startTraining(): void {
-    loading = true;
-    worker = new Worker(new URL('../workers/train.worker.ts', import.meta.url), {
-      type: 'module',
-    });
-    worker.onmessage = (ev: MessageEvent) => {
-      const m = ev.data as { kind: string; trace?: TraceSnapshot[] };
-      if (m.kind === 'trace' && m.trace) {
-        trace = m.trace;
-        cursor = trace.length - 1;
-        loading = false;
-        redraw();
-      }
-    };
-    worker.postMessage({ kind: 'run', config: cfg });
+  function magOnHalfCircle(sys: { poles: any[]; residues: any[] }): number[] {
+    const out = new Array(N_FREQ);
+    for (let i = 0; i < N_FREQ; i++) {
+      const th = (Math.PI * i) / (N_FREQ - 1);
+      out[i] = cabs(evalH(sys as any, expi(th)));
+    }
+    return out;
   }
 
   function pointsForSnapshot(snap: TraceSnapshot): ZPlanePoint[] {
     const pts: ZPlanePoint[] = [];
-    // Ghost target poles + ghost target zeros.
     const targetSys = toModalSystem({ modes: target.modes });
     for (let k = 0; k < target.modes.length; k++) {
       const m = target.modes[k];
@@ -114,7 +112,6 @@
       pts.push({ id: `ghost-zero-${i}`, z, kind: 'ghost-zero', draggable: false }),
     );
 
-    // Live poles (full list incl. conjugates), colored by mode.
     for (let k = 0; k < snap.state.modes.length; k++) {
       const m = snap.state.modes[k];
       const color = MODE_COLORS[k % MODE_COLORS.length];
@@ -138,8 +135,6 @@
       }
     }
 
-    // Live numerator zeros (so the reader can watch them detach from poles
-    // when the residue grows).
     const liveSys = toModalSystem(snap.state);
     const liveZeros = zerosOfSystem(liveSys);
     liveZeros.forEach((z, i) =>
@@ -148,18 +143,6 @@
     return pts;
   }
 
-  function magOnHalfCircle(sys: { poles: any[]; residues: any[] }): number[] {
-    const out = new Array(N_FREQ);
-    for (let i = 0; i < N_FREQ; i++) {
-      const th = (Math.PI * i) / (N_FREQ - 1);
-      out[i] = cabs(evalH(sys as any, expi(th)));
-    }
-    return out;
-  }
-
-  // Time-domain residual e(t) = g(t) − g*(t): the learned impulse response
-  // minus the target, sample by sample. This is exactly the integrand of the
-  // loss (L = ½ Σ_t e(t)²).
   function errorAt(snap: TraceSnapshot): number[] {
     const g = impulseResponse(snap.state, T_HORIZON);
     return g.map((v, t) => v - target.gStar[t]);
@@ -170,14 +153,12 @@
     const snap = trace[Math.min(cursor, trace.length - 1)];
     zPlane.update(pointsForSnapshot(snap));
 
-    // Frequency response of the live system vs the target (ghost).
     const liveMag = magOnHalfCircle(toModalSystem(snap.state));
     bodePlot.update(
       { theta: freqTheta, magnitude: liveMag },
       { theta: freqTheta, magnitude: targetMag },
     );
 
-    // Time-domain error vs the target, with a zero baseline for reference.
     errPlot?.update([
       {
         id: 'zero',
@@ -195,7 +176,6 @@
       },
     ]);
 
-    // Loss curve up through the cursor + ghost-trailing.
     const lossSeen: number[] = trace.slice(0, cursor + 1).map((s) => s.loss);
     const lossAll: number[] = trace.map((s) => s.loss);
 
@@ -232,7 +212,6 @@
         return;
       }
       redraw();
-      // ~30 fps; stride implicit via snapshots count.
       playTimer = window.setTimeout(tick, 40);
     };
     tick();
@@ -258,37 +237,84 @@
     redraw();
   }
 
-  onMount(() => {
-    // Pre-compute target frequency response + a sensible y-axis ceiling
-    // (~1.4× the target's peak, padded out so the live response can briefly
-    // overshoot during training without clipping).
+  function rebuildBodeAndErrPlots(): void {
     const targetSys = toModalSystem({ modes: target.modes });
     targetMag = magOnHalfCircle(targetSys);
     freqTheta = Array.from({ length: N_FREQ }, (_, i) => (Math.PI * i) / (N_FREQ - 1));
     const peak = Math.max(1, ...targetMag);
-    bodeYMax = Math.pow(10, Math.ceil(Math.log10(peak * 2)));
+    const bodeYMax = Math.pow(10, Math.ceil(Math.log10(peak * 2)));
 
-    zPlane = new ZPlane(zSvg, {});
-    lossPlot = new TimeSeries(lossSvg, {
-      xLabel: 'training time τ (snapshot index)',
-      yLabel: 'loss',
-      yLog: true,
-    });
-    bodePlot = new BodePlot(bodeSvg, {
-      yMin: 0.05,
-      yMax: bodeYMax,
-      yLog: true,
-    });
-    // Fixed symmetric y-range so the error panel doesn't rescale while
-    // scrubbing. At τ≈0 the learned response is ≈0, so the error is ≈ −g*(t)
-    // and |e(t)| peaks at max|g*| — that bounds every later snapshot.
+    // Both BodePlot and TimeSeries fix their y-range at construction, so
+    // recreate them when the target changes.
+    bodeSvg.replaceChildren();
+    bodePlot = new BodePlot(bodeSvg, { yMin: 0.05, yMax: bodeYMax, yLog: true });
+
     const errYAbs = 1.1 * Math.max(1e-6, ...target.gStar.map(Math.abs));
+    errSvg.replaceChildren();
     errPlot = new TimeSeries(errSvg, {
       xLabel: 'response time t',
       yLabel: 'error  g(t) − g*(t)',
       yMin: -errYAbs,
       yMax: errYAbs,
     });
+  }
+
+  function startTraining(): void {
+    pause();
+    worker?.terminate();
+
+    target = randomTarget({ totalDim: TOTAL_DIM, T: T_HORIZON, seed: runSeed });
+    rebuildBodeAndErrPlots();
+
+    loading = true;
+    cursor = 0;
+    trace = [];
+
+    worker = new Worker(new URL('../workers/train.worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    worker.onmessage = (ev: MessageEvent) => {
+      const m = ev.data as { kind: string; trace?: TraceSnapshot[] };
+      if (m.kind === 'trace' && m.trace) {
+        trace = m.trace;
+        cursor = trace.length - 1;
+        loading = false;
+        redraw();
+      }
+    };
+    worker.postMessage({
+      kind: 'run',
+      config: {
+        mode: 'direct',
+        target,
+        initScale,
+        seed: runSeed,
+        n: totalDimOfModes(target.modes),
+        dt: cfg.dt,
+        steps: cfg.steps,
+        snapshots: cfg.snapshots,
+        rhoThreshold: cfg.rhoThreshold,
+      },
+    });
+  }
+
+  function newRun(): void {
+    runSeed = (runSeed + 1) | 0;
+    startTraining();
+  }
+
+  function onInitScaleCommit(): void {
+    startTraining();
+  }
+
+  onMount(() => {
+    zPlane = new ZPlane(zSvg, {});
+    lossPlot = new TimeSeries(lossSvg, {
+      xLabel: 'training time τ (snapshot index)',
+      yLabel: 'loss',
+      yLog: true,
+    });
+    rebuildBodeAndErrPlots();
     startTraining();
   });
 
@@ -339,6 +365,7 @@
         {playing ? 'pause' : 'play'}
       </button>
       <button class="widget-btn" on:click={restart} disabled={loading || !trace.length}>restart</button>
+      <button class="widget-btn" on:click={newRun} disabled={loading}>new run</button>
       <span class="staircase-stats">
         {#if loading}
           training…
@@ -355,16 +382,24 @@
       on:input={onScrub}
       disabled={loading || !trace.length}
     />
+    <label class="init-scale-row">
+      init scale σ₀ = {initScale.toExponential(1)}
+      <input
+        type="range"
+        min={-4}
+        max={-1}
+        step={0.25}
+        bind:value={initScaleLog}
+        on:change={onInitScaleCommit}
+        disabled={loading}
+      />
+    </label>
     <p class="widget-hint">
-      Each cliff in L(τ) is one pole–zero pair separating in the complex
-      plane — and one new <em>peak</em> appearing in |H(e<sup>iθ</sup>)|.
-      Scrub the slider to watch the network learn one frequency at a time:
-      every cliff is the network "discovering" the next mode of the
-      target, visible as the solid learned curve rising to meet the
-      dashed target at a new resonance. The time-domain error panel shows
-      the same descent from the other side — the residual
-      g(t) − g*(t) starts as the full target signal and each cliff
-      flattens another stretch of it onto the zero line.
+      The student is parameterised in raw (W, b, c) coordinates — every entry
+      Gaussian-random at scale σ₀. Each "new run" reseeds <em>both</em> the
+      random target (ghost poles) and the random init. Eigenvalues of W now
+      drift during training; the staircase below is typical, not guaranteed.
+      Drop σ₀ and the cliffs sharpen; raise σ₀ and the descent smears out.
     </p>
   </div>
 </div>
@@ -374,8 +409,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    /* Keep the widget within its widget-l-page slot but cap so it never
-       extends past the article container at any viewport. */
     max-width: 100%;
     overflow: hidden;
   }
@@ -397,7 +430,6 @@
     min-width: 0;
   }
   .widget-panel--loss :global(svg) {
-    /* keep loss curve short so it doesn't dominate the layout */
     max-height: 180px;
   }
   .widget-panel--error :global(svg) {
@@ -416,6 +448,12 @@
   }
   .staircase-controls input[type='range'] {
     width: 100%;
+  }
+  .init-scale-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
   }
   .staircase-stats {
     font-family: var(--font-mono, JetBrains Mono, monospace);
