@@ -174,6 +174,8 @@
 </script>
 
 <div class="widget widget--tf-playground">
+  <div class="widget-banner">How Poles and Zeroes Affect I/O Behavior</div>
+
   <div class="widget-row widget-row--two">
     <div class="widget-panel widget-panel--zplane">
       <div class="widget-panel-header">z-plane</div>

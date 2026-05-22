@@ -333,6 +333,8 @@
 </script>
 
 <div class="widget widget--staircase">
+<div class="widget-banner">Watching actual learning dynamics</div>
+
   <div class="widget-row widget-row--top">
     <div class="widget-panel widget-panel--zplane">
       <div class="widget-panel-header">z-plane — poles (×) &amp; zeros (○)</div>
@@ -369,7 +371,7 @@
         {playing ? 'pause' : 'play'}
       </button>
       <button class="widget-btn" on:click={restart} disabled={loading || !trace.length}>restart</button>
-      <button class="widget-btn" on:click={newRun} disabled={loading}>new run</button>
+      <button class="widget-btn" on:click={newRun} disabled={loading}>random init & target</button>
       <span class="staircase-stats">
         {#if loading}
           training…

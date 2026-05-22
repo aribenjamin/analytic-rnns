@@ -40,7 +40,7 @@
   const STEPS = 420;
   const PLAY_SECONDS = 7;
 
-  let sigma0 = 3e-3;
+  let sigma0 = 1e-4;
   let cursor = STEPS - 1;
   let playing = false;
   let rafId = 0;
@@ -302,7 +302,7 @@
 </script>
 
 <div class="widget widget--ff-staircase">
-  <div class="widget-banner">non-recurrent &mdash; linear autoencoder</div>
+  <div class="widget-banner">Primer: Learning dynamics in deep linear nets</div>
 
   <div class="imgrow">
     <div class="widget-panel">

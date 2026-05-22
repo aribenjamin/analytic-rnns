@@ -95,11 +95,13 @@
         <div id="widget-feedforward-staircase" class="widget-slot widget-l-page"></div>
 
         <p>
-          The lab of Andrew Saxe recently distilled this already-beautiful picture into a more general
-          picture applicable to other settings.<sup class="cite"><a href="#ref-saxe2019">2</a></sup>
-          You can picture the dynamics of learning as a staircase,
-          where each step is a saddle point in the loss landscape. We see 'saddle-to-saddle' dynamics.<sup class="cite"><a href="#ref-jacot2021">4</a></sup>
-          Each mode of our learning progression is associated with a saddle in the landscape.
+          Folks at UCL (Yedi Zhang, Andrew Saxe, and Peter Latham) recently distilled this intuitive picture 
+          even further into a general principle: saddle-to-saddle dynamics<sup class="cite"><a href="#ref-zhang2026">2</a></sup>.
+          It's one of those ideas that's immediately intuitive. Picture the dynamics of learning as a staircase,
+          where each step is a saddle point in the loss landscape. 
+          It's quite clear why gradient descent would get stuck at saddles, 
+          and how it would escape them one by one. Our 'modes' correspond to 
+          the thing that we pick up when we escape a saddle.
         </p>
 
       </section>
@@ -122,18 +124,22 @@
         <div id="widget-network-schema" class="widget-slot"></div>
 
         <p>
+          What are the 'modes' we pick up during learning? 
           The saddle-to-saddle picture of learning gives us a recipe. To
           understand the learning dynamics of this system, we must
           find the saddles and the modes that emerge when a saddle is passed.
-          So what are they?
         </p>
 
         <p>
-          What is the analogue of an SVD here? Your first guess may be the
-          eigendecomposition of $W$. This is already a step up: whereas 
-          singular values are nonnegative real numbers, eigenvalues are complex numbers, 
-          and the complex plane is a much richer canvas for learning dynamics to paint on. 
-          However, eigenvalues are not quite the object we're looking for.
+          Let's get some incorrect answers out of the way first.
+          Unlike in feedforward linear networks, the answer is not the
+          singular values. If you're familiar with linear dynamical systems, your 
+          next guess might be the
+          eigendevalues of $W$. This is already a step up: whereas 
+          singular values are nonnegative real numbers, eigenvalues are complex numbers.
+          However, eigenvalues are not still not quite the object we're looking for. 
+          You might also guess the moments when we learn new modes correspond to bifurcations
+           in the dynamics of $h_t$. But none of these are quite right.
         </p>
 
           <p>

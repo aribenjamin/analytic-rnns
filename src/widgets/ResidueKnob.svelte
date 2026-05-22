@@ -84,6 +84,8 @@
 </script>
 
 <div class="widget widget--residue-knob">
+<div class="widget-banner">Poles and zeros can cancel</div>
+
   <div class="widget-row widget-row--two">
     <div class="widget-panel widget-panel--zplane">
       <div class="widget-panel-header">z-plane</div>

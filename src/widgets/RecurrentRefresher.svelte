@@ -81,6 +81,8 @@
 </script>
 
 <div class="widget widget--recurrent">
+  <div class="widget-banner">Primer: Eigenvalues of W and the internal state h(t)</div>
+
   <p class="scope-note">
     These panels show the network's <strong>internal state</strong> only —
     the population <em>h</em> evolving under its own recurrence,
