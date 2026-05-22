@@ -251,9 +251,8 @@
 
         <p>
           A pole (i.e. eigenvalue of $W$) alone is not enough to produce a resonance: it has to be
-          read out. The <em>residue</em> at each pole determines how loudly
-          that mode speaks to the output. (Think of "null modes" in feedforward networks: 
-          they are directions in which the input is projected but the output isn't read out.)
+          both excited and read out. The <em>residue</em> at each pole determines how loudly
+          that mode gets talked to by the input and how much it speaks to the output. 
           When a zero sits directly on top of a pole, the
           residue is zero and the mode is silent — even though the
           eigenvalue of $W$ is still there. Pulling the zero away activates
@@ -361,12 +360,27 @@
         </p>
 
         <p>
-          This isn't just an artefact of restricting to one mode. In
-          § 6 we will show that the full Hessian in $(c, b)$ space has
+          By construction this is a critical point of the full loss
+          (the other modes were at their critical points, and we just
+          showed $(\alpha_k, \beta_k)$ are too). It is a saddle of the
+          full loss as long as the other modes were at minima of their
+          restricted losses, which they generically are. So the
+          hunting strategy works: <em>every cancellation point
+          $r_k = 0$ — with the other modes at their best-fit values —
+          is a saddle of the full loss landscape.</em>
+          This isn't just an artefact of restricting to one mode:
+          the full Hessian in $(c, b)$ space has
           exactly this block structure — each mode contributes a
-          saddle direction, and the modes with the largest cross-energies
-          escape first. But which modes escape fastest, and why? That
-          is the dynamical question we turn to next.
+          saddle direction.
+        </p>
+
+        <p>
+          Notice what happens at the origin $b = c = 0$: every residue
+          vanishes at once, so <em>all</em> poles are simultaneously
+          cancelled by zeros. This is the highest saddle — every mode is
+          an unstable direction — and small random initialisation places
+          the network nearby. The modes then race to escape, and the
+          order they do so is the subject of the next section.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
@@ -415,16 +429,19 @@
         </ul>
 
         <p>
-          The role of $r_k^{\ast}$ in § 5 was a stand-in for $J_k$
-          (with $S_k^{(x)}$ folded in by a choice of normalisation).
-          Now we keep them separate.
+          The simplified loss in § 5,
+          $\tfrac{1}{2}|r_k^{\ast} - \alpha_k\beta_k|^2$, is this
+          same expression with $r_k^{\ast} = J_k/S_k^{(x)}$ and an
+          overall factor of $S_k^{(x)}$. That factor doesn't affect
+          the saddle structure (zeros of the gradient, sign of the
+          Hessian), but it does affect the escape <em>rate</em> —
+          which depends on $J_k$, not $r_k^{\ast}$. So we need both
+          constants from here on.
         </p>
 
         <p>
           Under gradient flow on $(c, b)$ with poles fixed, the Hessian
-          at the saddle $(c, b) = (0, 0)$ has the same block structure
-          as Saxe et al.'s deep linear
-          networks:<d-footnote>
+          at the saddle $(c, b) = (0, 0)$ has a block structure (derivation below <d-footnote>
           <strong>Derivation.</strong>
           At the saddle all $\alpha_k = \beta_k = 0$, so
           $c = \sum_k \alpha_k\,u_k = 0$ and $h_t = 0$. This makes
@@ -460,7 +477,9 @@
           different modes in the SVD of $M$. A single isolated mode
           contributes $|J_k|\,\|v_k\|\,\|u_k\|$ to the escape rate —
           non-normality boosts learning speed.
-          </d-footnote>
+          </d-footnote>) 
+          which is very similar to what we see for deep linear
+          networks:
         </p>
 
         $$H \;=\; \begin{pmatrix} 0 & M \\ M^{\!\top} & 0 \end{pmatrix},

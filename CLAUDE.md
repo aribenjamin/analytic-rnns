@@ -63,6 +63,30 @@ VITE_BASE_PATH=/<repo>/ npm run build   # for GitHub Pages subdir hosting
 Hand-derive new math first, write the test, then implement. The numerical core
 currently has 18 passing tests in src/lib/*.test.ts.
 
+## Previewing (worktrees + verification)
+
+`preview_start` **reuses whatever dev server is already bound to the port in
+`.claude/launch.json`.** If that port belongs to another checkout (the main
+repo or a sibling worktree), you silently preview the *wrong files* —
+`preview_eval` and screenshots still look plausible because they hit a real
+server, just not yours. This is the recurring trap.
+
+- `.claude/launch.json` is git-ignored so every checkout owns its port; the
+  main repo uses 5180.
+- In a worktree, run `npm run preview:port` once before `preview_start`. It
+  takes the lowest free port ≥ 5181, rewrites `.claude/launch.json`, and the
+  server then starts with `--strictPort` — it binds that exact port or fails
+  loudly, never silently landing on someone else's server.
+- Then `preview_start "dev"`.
+
+Verify widgets with `preview_snapshot` (text, roles, structure) or
+`preview_eval` (query the live DOM — widgets are `[id^="widget-"]`). Both are
+reliable and scroll-independent. **Do not trust `preview_screenshot` here:** in
+this preview environment the screenshot capture is decoupled from
+`preview_eval`'s scroll, so a mid-article widget photographs as a blank cream
+rectangle even when it rendered correctly. A blank screenshot is not evidence
+of a broken widget — check `preview_snapshot` before concluding anything.
+
 ## Phase A status
 §4 <TransferFunctionPlayground> and §5 <ResidueKnob> are shipped. Remaining
 Phase A widgets in build order: <FeedforwardStaircase> (§1),

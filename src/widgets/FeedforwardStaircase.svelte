@@ -27,6 +27,15 @@
   // empirically for evenly spaced staircase steps; length must equal K.
   const SIGMA_STARS = [2.6, 1.15, 0.62, 0.4, 0.27];
 
+  // One color per band for the σ_b(τ) panel; length must equal K.
+  const BAND_COLORS = [
+    'var(--accent-active, #d05a3a)',
+    'var(--accent, #1f6feb)',
+    'var(--accent-pole, #6a4cb8)',
+    'var(--accent-target, #2a9d8f)',
+    '#c98a1f',
+  ];
+
   const TAU_MAX = 14;
   const STEPS = 420;
   const PLAY_SECONDS = 7;
@@ -41,19 +50,29 @@
   let origCanvas: HTMLCanvasElement;
   let reconCanvas: HTMLCanvasElement;
   let lossSvg: SVGSVGElement;
+  let sigmaSvg: SVGSVGElement;
 
   let bandImages: number[][] = [];
   let bandEnergy: number[] = [];
   let totalEnergy = 1;
   let lossTraj: number[] = [];
   let lossPlot: TimeSeries | null = null;
+  let sigmaPlot: TimeSeries | null = null;
 
   $: tau = (TAU_MAX * cursor) / (STEPS - 1);
   $: gains = SIGMA_STARS.map((s) => Math.min(1, sigmaAt(s, sigma0, tau) / s));
   $: modesLearned = gains.filter((g) => g > 0.5).length;
+  // Per-band singular value σ_b(τ) over the whole run — each climbs its own
+  // sigmoid, and the staircase in the error curve is these stacked in time.
+  $: sigmaTraj = SIGMA_STARS.map((s) =>
+    Array.from({ length: STEPS }, (_, t) =>
+      sigmaAt(s, sigma0, (TAU_MAX * t) / (STEPS - 1)),
+    ),
+  );
   $: if (ready) lossTraj = computeLoss(sigma0);
   $: if (ready) renderReconstruction(gains);
   $: if (ready) drawLoss(cursor, lossTraj);
+  $: if (ready) drawSigma(cursor, sigmaTraj);
 
   // ─── schematic geometry ────────────────────────────────────────────────
   const CELL_X = 146;
@@ -196,6 +215,25 @@
     ]);
   }
 
+  function drawSigma(upTo: number, traj: number[][]): void {
+    if (!sigmaPlot || traj.length === 0) return;
+    // Dashed targets at σ*_b so each sigmoid's ceiling is visible.
+    const targets = SIGMA_STARS.map((s, b) => ({
+      id: `target-${b}`,
+      values: new Array<number>(STEPS).fill(s),
+      color: BAND_COLORS[b % BAND_COLORS.length],
+      width: 1,
+      dasharray: '2,4',
+    }));
+    const curves = traj.map((vals, b) => ({
+      id: `sigma-${b}`,
+      values: vals.slice(0, upTo + 1),
+      color: BAND_COLORS[b % BAND_COLORS.length],
+      width: 2.25,
+    }));
+    sigmaPlot.update([...targets, ...curves]);
+  }
+
   // ─── playback ──────────────────────────────────────────────────────────
   function tick(t: number): void {
     if (!playing) return;
@@ -250,6 +288,12 @@
       xLabel: 'training time τ →',
       yLabel: 'reconstruction error',
       yLog: true,
+    });
+    sigmaPlot = new TimeSeries(sigmaSvg, {
+      xLabel: 'training time τ →',
+      yLabel: 'σ_b(τ)',
+      yMin: 0,
+      yMax: Math.max(...SIGMA_STARS) * 1.15,
     });
     ready = true;
 
@@ -321,9 +365,17 @@
     </div>
   </div>
 
-  <div class="widget-panel">
-    <div class="widget-panel-header">reconstruction error vs. training time</div>
-    <svg bind:this={lossSvg}></svg>
+  <div class="widget-row widget-row--two">
+    <div class="widget-panel">
+      <div class="widget-panel-header">
+        singular values σ<sub>b</sub>(τ) &mdash; learned in sigmoid stages
+      </div>
+      <svg bind:this={sigmaSvg}></svg>
+    </div>
+    <div class="widget-panel">
+      <div class="widget-panel-header">reconstruction error vs. training time</div>
+      <svg bind:this={lossSvg}></svg>
+    </div>
   </div>
 
   <div class="widget-controls widget-controls--row">
