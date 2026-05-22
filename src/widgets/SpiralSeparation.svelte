@@ -289,8 +289,8 @@
   onMount(() => {
     zPlane = new ZPlane(zSvg, { range: ZOOM });
     transientPlot = new TimeSeries(tSvg, {
-      width: 560,
-      height: 430,
+      width: 340,
+      height: 240,
       xLabel: 'training time τ (snapshot)',
       yLabel: 'mode output contribution',
     });

@@ -137,7 +137,7 @@
 
 .axis text {
   font-family: var(--font-sans);
-  font-size: 10.5px;
+  font-size: 15px;
   fill: var(--text-muted);
 }
 

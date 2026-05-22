@@ -30,7 +30,7 @@ export class TimeSeries {
   private opts: TimeSeriesOptions;
   private width = 0;
   private height = 0;
-  private margin = { top: 14, right: 12, bottom: 28, left: 44 };
+  private margin = { top: 16, right: 14, bottom: 42, left: 64 };
   private xScale!: d3.ScaleLinear<number, number>;
   private yScale!: d3.ScaleContinuousNumeric<number, number>;
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -48,8 +48,8 @@ export class TimeSeries {
 
   private initLayout(): void {
     // Fixed internal coordinate system; CSS handles external sizing.
-    this.width = this.opts.width ?? 600;
-    this.height = this.opts.height ?? 280;
+    this.width = this.opts.width ?? 340;
+    this.height = this.opts.height ?? 230;
     this.svg
       .attr('viewBox', `0 0 ${this.width} ${this.height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet');
@@ -74,17 +74,17 @@ export class TimeSeries {
     this.xLabelEl = this.root
       .append('text')
       .attr('x', (this.width - m.right + m.left) / 2)
-      .attr('y', this.height - 4)
+      .attr('y', this.height - 8)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 11)
+      .attr('font-size', 15)
       .attr('fill', '#555')
       .text(this.opts.xLabel ?? '');
 
     this.yLabelEl = this.root
       .append('text')
-      .attr('transform', `translate(12, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`)
+      .attr('transform', `translate(15, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 11)
+      .attr('font-size', 15)
       .attr('fill', '#555')
       .text(this.opts.yLabel ?? '');
 

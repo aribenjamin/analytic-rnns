@@ -204,8 +204,8 @@
 
   onMount(() => {
     cf = new ContourFlow(landscapeSvg, canvasEl, {
-      width: 500,
-      height: 500,
+      width: 340,
+      height: 340,
       xMin: -AXIS,
       xMax: AXIS,
       yMin: -AXIS,
@@ -229,8 +229,8 @@
     cf.setBakedTraces(ringTracesForCF());
 
     ts = new TimeSeries(tsSvg, {
-      width: 460,
-      height: 500,
+      width: 340,
+      height: 230,
       xLabel: 'training time τ',
       yLabel: 'L(τ)',
       yMin: 0,

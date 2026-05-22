@@ -81,7 +81,7 @@ export class ZPlane {
     // is driven by CSS (typically width:100%), and the viewBox scales it to
     // fit. This removes any dependency on getBoundingClientRect at mount time,
     // which was unreliable before CSS layout settled.
-    this.width = this.opts.width ?? 400;
+    this.width = this.opts.width ?? 300;
     this.height = this.opts.height ?? this.width;
     // Square aspect; pick the smaller of width / height.
     const dim = Math.min(this.width, this.height);
@@ -166,14 +166,14 @@ export class ZPlane {
       .attr('x', xScale(xHi) - 6)
       .attr('y', yScale(0) - 6)
       .attr('text-anchor', 'end')
-      .attr('font-size', 10)
+      .attr('font-size', 14)
       .attr('fill', '#888')
       .text('Re');
     root
       .append('text')
       .attr('x', xScale(0) + 6)
       .attr('y', yScale(yHi) + 12)
-      .attr('font-size', 10)
+      .attr('font-size', 14)
       .attr('fill', '#888')
       .text('Im');
 

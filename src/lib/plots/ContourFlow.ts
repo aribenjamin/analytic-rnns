@@ -74,7 +74,7 @@ export class ContourFlow {
     & Pick<ContourFlowOptions, 'colorDomain' | 'onClick' | 'xLabel' | 'yLabel'>;
   private width: number;
   private height: number;
-  private margin = { top: 14, right: 14, bottom: 30, left: 38 };
+  private margin = { top: 16, right: 16, bottom: 42, left: 48 };
   private xScale: d3.ScaleLinear<number, number>;
   private yScale: d3.ScaleLinear<number, number>;
   private root: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -102,8 +102,8 @@ export class ContourFlow {
     this.ctx = ctx;
 
     this.opts = {
-      width: opts.width ?? 520,
-      height: opts.height ?? 520,
+      width: opts.width ?? 340,
+      height: opts.height ?? 340,
       xMin: opts.xMin,
       xMax: opts.xMax,
       yMin: opts.yMin,
@@ -242,7 +242,7 @@ export class ContourFlow {
         txt.attr('x', lx).attr('y', ly).text(label)
           .attr('fill', stroke)
           .attr('font-family', "'Inter', sans-serif")
-          .attr('font-size', 11)
+          .attr('font-size', 15)
           .attr('font-weight', 500)
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
@@ -349,20 +349,20 @@ export class ContourFlow {
     if (this.opts.xLabel) {
       this.axesG.append('text')
         .attr('x', (this.width - m.right + m.left) / 2)
-        .attr('y', this.height - 6)
+        .attr('y', this.height - 8)
         .attr('text-anchor', 'middle')
         .attr('font-family', "'Inter', sans-serif")
-        .attr('font-size', 12)
+        .attr('font-size', 15)
         .attr('font-style', 'italic')
         .attr('fill', 'var(--text-muted)')
         .text(this.opts.xLabel);
     }
     if (this.opts.yLabel) {
       this.axesG.append('text')
-        .attr('transform', `translate(11, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`)
+        .attr('transform', `translate(15, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`)
         .attr('text-anchor', 'middle')
         .attr('font-family', "'Inter', sans-serif")
-        .attr('font-size', 12)
+        .attr('font-size', 15)
         .attr('font-style', 'italic')
         .attr('fill', 'var(--text-muted)')
         .text(this.opts.yLabel);

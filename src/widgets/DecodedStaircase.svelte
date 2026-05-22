@@ -270,6 +270,8 @@
 
     zPlane = new ZPlane(zSvg, {});
     lossPlot = new TimeSeries(lossSvg, {
+      width: 560,
+      height: 180,
       xLabel: 'training time τ (snapshot index)',
       yLabel: 'loss',
       yLog: true,
@@ -284,6 +286,8 @@
     // and |e(t)| peaks at max|g*| — that bounds every later snapshot.
     const errYAbs = 1.1 * Math.max(1e-6, ...target.gStar.map(Math.abs));
     errPlot = new TimeSeries(errSvg, {
+      width: 560,
+      height: 200,
       xLabel: 'response time t',
       yLabel: 'error  g(t) − g*(t)',
       yMin: -errYAbs,

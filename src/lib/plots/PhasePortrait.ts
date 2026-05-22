@@ -25,7 +25,7 @@ export class PhasePortrait {
 
   constructor(svgEl: SVGSVGElement, opts: PhasePortraitOptions = {}) {
     const range = opts.range ?? 1.6;
-    const dim = opts.dim ?? 400;
+    const dim = opts.dim ?? 300;
     const svg = d3.select(svgEl);
     svg
       .attr('viewBox', `0 0 ${dim} ${dim}`)
@@ -81,7 +81,7 @@ export class PhasePortrait {
       .attr('x', this.xScale(range) - 6)
       .attr('y', this.yScale(0) - 6)
       .attr('text-anchor', 'end')
-      .attr('font-size', 11)
+      .attr('font-size', 14)
       .attr('fill', 'var(--text-muted)')
       .attr('font-family', 'var(--font-serif)')
       .attr('font-style', 'italic')
@@ -90,7 +90,7 @@ export class PhasePortrait {
       .append('text')
       .attr('x', this.xScale(0) + 6)
       .attr('y', this.yScale(range) + 12)
-      .attr('font-size', 11)
+      .attr('font-size', 14)
       .attr('fill', 'var(--text-muted)')
       .attr('font-family', 'var(--font-serif)')
       .attr('font-style', 'italic')
@@ -111,7 +111,7 @@ export class PhasePortrait {
       .attr('x', dim - margin)
       .attr('y', margin + 10)
       .attr('text-anchor', 'end')
-      .attr('font-size', 11)
+      .attr('font-size', 14)
       .attr('fill', 'var(--accent-pole)')
       .attr('font-family', 'var(--font-sans)')
       .attr('opacity', 0)
