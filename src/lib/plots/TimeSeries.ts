@@ -22,7 +22,21 @@ export interface TimeSeriesOptions {
   yMax?: number;
   xLabel?: string;
   yLabel?: string;
+  /** Colored multi-part y-axis label (used in place of yLabel). Parts render
+   *  as sibling tspans inside the <text>, each with its own fill. */
+  yLabelParts?: { text: string; color?: string }[];
+  /** Render the y-axis label horizontally (top-left of the plot area) instead
+   *  of the default rotated-90° placement. Useful for short row titles. */
+  yLabelHorizontal?: boolean;
   yLog?: boolean;
+  /** Suppress x-axis tick labels (useful for stacked rows that share an x). */
+  hideXTicks?: boolean;
+  /** Suppress y-axis tick labels (when the y units are obvious or symmetric). */
+  hideYTicks?: boolean;
+  /** Override the default plot margins (top/right/bottom/left). */
+  margin?: { top?: number; right?: number; bottom?: number; left?: number };
+  /** Font size for axis labels. Default 15. */
+  labelFontSize?: number;
 }
 
 export class TimeSeries {
@@ -30,7 +44,12 @@ export class TimeSeries {
   private opts: TimeSeriesOptions;
   private width = 0;
   private height = 0;
-  private margin = { top: 16, right: 14, bottom: 42, left: 64 };
+  private margin: { top: number; right: number; bottom: number; left: number } = {
+    top: 16,
+    right: 14,
+    bottom: 42,
+    left: 64,
+  };
   private xScale!: d3.ScaleLinear<number, number>;
   private yScale!: d3.ScaleContinuousNumeric<number, number>;
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -50,6 +69,13 @@ export class TimeSeries {
     // Fixed internal coordinate system; CSS handles external sizing.
     this.width = this.opts.width ?? 340;
     this.height = this.opts.height ?? 230;
+    if (this.opts.margin) {
+      const mo = this.opts.margin;
+      if (mo.top !== undefined) this.margin.top = mo.top;
+      if (mo.right !== undefined) this.margin.right = mo.right;
+      if (mo.bottom !== undefined) this.margin.bottom = mo.bottom;
+      if (mo.left !== undefined) this.margin.left = mo.left;
+    }
     this.svg
       .attr('viewBox', `0 0 ${this.width} ${this.height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet');
@@ -71,22 +97,40 @@ export class TimeSeries {
       .attr('class', 'axis y-axis')
       .attr('transform', `translate(${m.left}, 0)`);
 
+    const labelFs = this.opts.labelFontSize ?? 15;
     this.xLabelEl = this.root
       .append('text')
       .attr('x', (this.width - m.right + m.left) / 2)
       .attr('y', this.height - 8)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 15)
+      .attr('font-size', labelFs)
       .attr('fill', '#555')
       .text(this.opts.xLabel ?? '');
 
-    this.yLabelEl = this.root
-      .append('text')
-      .attr('transform', `translate(15, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', 15)
-      .attr('fill', '#555')
-      .text(this.opts.yLabel ?? '');
+    this.yLabelEl = this.root.append('text').attr('font-size', labelFs).attr('fill', '#555');
+    if (this.opts.yLabelHorizontal) {
+      this.yLabelEl
+        .attr('x', m.left + 4)
+        .attr('y', m.top + labelFs)
+        .attr('text-anchor', 'start');
+    } else {
+      this.yLabelEl
+        .attr(
+          'transform',
+          `translate(15, ${(this.height - m.bottom + m.top) / 2}) rotate(-90)`,
+        )
+        .attr('text-anchor', 'middle');
+    }
+    if (this.opts.yLabelParts && this.opts.yLabelParts.length > 0) {
+      for (const part of this.opts.yLabelParts) {
+        this.yLabelEl
+          .append('tspan')
+          .attr('fill', part.color ?? '#555')
+          .text(part.text);
+      }
+    } else {
+      this.yLabelEl.text(this.opts.yLabel ?? '');
+    }
 
     this.linesG = this.root.append('g').attr('class', 'lines');
   }
@@ -119,10 +163,18 @@ export class TimeSeries {
     }
     this.yScale.domain([yMin, yMax]);
 
-    this.xAxisG.call(d3.axisBottom(this.xScale).ticks(5));
-    this.yAxisG.call(
-      (d3.axisLeft(this.yScale) as any).ticks(5, this.opts.yLog ? '.1g' : undefined),
-    );
+    if (this.opts.hideXTicks) {
+      this.xAxisG.call(d3.axisBottom(this.xScale).ticks(5).tickFormat(() => ''));
+    } else {
+      this.xAxisG.call(d3.axisBottom(this.xScale).ticks(5));
+    }
+    if (this.opts.hideYTicks) {
+      this.yAxisG.call(d3.axisLeft(this.yScale).ticks(0).tickSize(0));
+    } else {
+      this.yAxisG.call(
+        (d3.axisLeft(this.yScale) as any).ticks(5, this.opts.yLog ? '.1g' : undefined),
+      );
+    }
 
     const lineGen = d3
       .line<number>()

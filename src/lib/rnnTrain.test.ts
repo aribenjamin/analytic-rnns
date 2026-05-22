@@ -7,6 +7,9 @@ import {
   randomTarget,
   simulateTrajectoryWBC,
   totalDimOfModes,
+  whiteNoiseInput,
+  pinkNoiseInput,
+  convolveCausal,
 } from './rnnTrain';
 import { impulseResponseOfModes } from './gradientFlow';
 
@@ -27,7 +30,7 @@ describe('gradientWBC — sanity at the teacher', () => {
     );
     const T = 80;
     const gStar = simulate(teacher, impulseInput(T));
-    const grads = gradientWBC(teacher, gStar);
+    const grads = gradientWBC(teacher, impulseInput(T), gStar);
     expect(grads.loss).toBeLessThan(1e-20);
     let dWmax = 0;
     for (const v of grads.dW) dWmax = Math.max(dWmax, Math.abs(v));
@@ -46,7 +49,9 @@ describe('gradientWBC — finite-difference check', () => {
     const target = randomTarget({ totalDim: 3, T: 40, seed: 11 });
     const n = totalDimOfModes(target.modes);
     const rnn = initWBC(n, 3e-2, 7);
-    const grads = gradientWBC(rnn, target.gStar);
+    const T = target.gStar.length;
+    const input = impulseInput(T);
+    const grads = gradientWBC(rnn, input, target.gStar);
 
     const eps = 1e-6;
     const checkParam = (
@@ -54,15 +59,13 @@ describe('gradientWBC — finite-difference check', () => {
       anaGrad: Float64Array,
       label: string,
     ): void => {
-      // Probe a handful of entries (full check is unnecessary; this is a
-      // correctness spot-test, not a coverage exercise).
       const idxs = [0, 1, arr.length - 1];
       for (const k of idxs) {
         const saved = arr[k];
         arr[k] = saved + eps;
-        const lp = lossOf(rnn, target.gStar);
+        const lp = lossOf(rnn, input, target.gStar);
         arr[k] = saved - eps;
-        const lm = lossOf(rnn, target.gStar);
+        const lm = lossOf(rnn, input, target.gStar);
         arr[k] = saved;
         const fd = (lp - lm) / (2 * eps);
         const rel = Math.abs(anaGrad[k] - fd) / Math.max(1, Math.abs(fd));
@@ -94,16 +97,113 @@ describe('simulateTrajectoryWBC — monotonic descent on a random target', () =>
   });
 });
 
-function lossOf(rnn: ReturnType<typeof initWBC>, gStar: readonly number[]): number {
-  const T = gStar.length;
-  const y = simulate(rnn, impulseInput(T));
+function lossOf(
+  rnn: ReturnType<typeof initWBC>,
+  input: readonly number[],
+  yStar: readonly number[],
+): number {
+  const T = yStar.length;
+  const y = simulate(rnn, input);
   let s = 0;
   for (let t = 0; t < T; t++) {
-    const e = y[t] - gStar[t];
+    const e = y[t] - yStar[t];
     s += e * e;
   }
   return 0.5 * s;
 }
+
+describe('gradientWBC — finite-difference check under non-impulse input', () => {
+  it('analytic gradient matches central differences for white-noise input', () => {
+    const target = randomTarget({ totalDim: 3, T: 40, seed: 17 });
+    const n = totalDimOfModes(target.modes);
+    const rnn = initWBC(n, 3e-2, 9);
+    const T = target.gStar.length;
+    const u = whiteNoiseInput(T, 42);
+    const yStar = convolveCausal(target.gStar, u);
+    const grads = gradientWBC(rnn, u, yStar);
+
+    const eps = 1e-6;
+    const checkParam = (
+      arr: Float64Array,
+      anaGrad: Float64Array,
+      label: string,
+    ): void => {
+      const idxs = [0, 1, arr.length - 1];
+      for (const k of idxs) {
+        const saved = arr[k];
+        arr[k] = saved + eps;
+        const lp = lossOf(rnn, u, yStar);
+        arr[k] = saved - eps;
+        const lm = lossOf(rnn, u, yStar);
+        arr[k] = saved;
+        const fd = (lp - lm) / (2 * eps);
+        const rel = Math.abs(anaGrad[k] - fd) / Math.max(1, Math.abs(fd));
+        expect(rel, `${label}[${k}]: ana=${anaGrad[k]}, fd=${fd}`).toBeLessThan(1e-4);
+      }
+    };
+    checkParam(rnn.W, grads.dW, 'dW');
+    checkParam(rnn.b, grads.db, 'db');
+    checkParam(rnn.c, grads.dc, 'dc');
+  });
+});
+
+describe('convolveCausal', () => {
+  it('matches direct simulation of an LTI student on the same input', () => {
+    const target = randomTarget({ totalDim: 3, T: 32, seed: 5 });
+    const u = whiteNoiseInput(32, 71);
+    const yConv = convolveCausal(target.gStar, u);
+    // Compare against the impulseResponseOfModes-based simulation:
+    // y[t] = Σ_{k=0..t} g[t-k] u[k] for an LTI system with impulse response g.
+    let maxErr = 0;
+    for (let t = 0; t < 32; t++) {
+      let s = 0;
+      for (let k = 0; k <= t; k++) s += target.gStar[t - k] * u[k];
+      maxErr = Math.max(maxErr, Math.abs(yConv[t] - s));
+    }
+    expect(maxErr).toBeLessThan(1e-12);
+  });
+});
+
+describe('noise generators', () => {
+  it('whiteNoiseInput has unit total energy (Σ x² = 1)', () => {
+    const x = whiteNoiseInput(128, 3);
+    const e = x.reduce((a, v) => a + v * v, 0);
+    expect(e).toBeCloseTo(1, 10);
+  });
+
+  it('pinkNoiseInput is real, finite, and has unit total energy', () => {
+    const x = pinkNoiseInput(128, 5);
+    for (const v of x) expect(Number.isFinite(v)).toBe(true);
+    const e = x.reduce((a, v) => a + v * v, 0);
+    expect(e).toBeCloseTo(1, 10);
+  });
+
+  it('pinkNoiseInput concentrates power at low frequencies vs white', () => {
+    // Crude check: low-pass-band energy / high-pass-band energy is much
+    // larger for pink than for white. (Computed via half-spectrum DFT.)
+    const T = 128;
+    const ratio = (x: number[]): number => {
+      let loE = 0;
+      let hiE = 0;
+      for (let k = 1; k < T / 2; k++) {
+        let re = 0;
+        let im = 0;
+        for (let n = 0; n < T; n++) {
+          const a = (-2 * Math.PI * k * n) / T;
+          re += x[n] * Math.cos(a);
+          im += x[n] * Math.sin(a);
+        }
+        const mag2 = re * re + im * im;
+        if (k < T / 8) loE += mag2;
+        else if (k > T / 4) hiE += mag2;
+      }
+      return loE / Math.max(hiE, 1e-12);
+    };
+    const rPink = ratio(pinkNoiseInput(T, 11));
+    const rWhite = ratio(whiteNoiseInput(T, 11));
+    expect(rPink).toBeGreaterThan(rWhite * 2);
+  });
+});
 
 describe('randomTarget — well-formed output', () => {
   it('produces modes whose dimensions sum to the requested totalDim', () => {

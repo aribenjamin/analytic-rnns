@@ -2,13 +2,13 @@
  * Direct (W, b, c) gradient flow for the §7 DecodedStaircase widget.
  *
  *   System:    h_{t+1} = W h_t + b x_t,    y_t = cᵀ h_{t+1}
- *   Loss:      L = ½ Σ_{t=0}^{T-1} (y_t − g*_t)²    with x = δ[0]
+ *   Loss:      L = ½ Σ_{t=0}^{T-1} (y_t − y*_t)²
  *   Adjoint:   λ_{T+1} = 0
  *              λ_{t+1} = e_t c + Wᵀ λ_{t+2}      for t = T−1, …, 0
  *   Grads:     dL/dW  = Σ_{t=0}^{T-1} λ_{t+1} h_tᵀ      (h_0 = 0, so the t=0
  *                                                        outer product
  *                                                        contributes nothing)
- *              dL/db  = λ_1                              (impulse only at t=0)
+ *              dL/db  = Σ_{t=0}^{T-1} x_t λ_{t+1}
  *              dL/dc  = Σ_{t=0}^{T-1} e_t h_{t+1}
  *
  * Random target: drawn in modal coordinates (kept compatible with the existing
@@ -131,6 +131,89 @@ export function totalDimOfModes(modes: Mode[]): number {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Input sequences for the (W, b, c) trainer
+// ──────────────────────────────────────────────────────────────────────
+
+export type InputKind = 'impulse' | 'white' | 'pink';
+
+/** Scale so Σ x_t² = 1 — i.e. the input has the same total energy as the
+ *  unit impulse. This keeps the gradient magnitudes comparable to impulse
+ *  training, so the same `dt` works for all input regimes. */
+function normalizeToUnitNorm(x: number[]): number[] {
+  let s2 = 0;
+  for (const v of x) s2 += v * v;
+  const norm = Math.sqrt(s2);
+  if (norm === 0 || !Number.isFinite(norm)) return x;
+  return x.map((v) => v / norm);
+}
+
+/** Length-T Gaussian white noise, normalized to unit norm (Σ x² = 1). */
+export function whiteNoiseInput(T: number, seed: number): number[] {
+  const gauss = makeGauss(mulberry32(seed));
+  const x = new Array<number>(T);
+  for (let t = 0; t < T; t++) x[t] = gauss();
+  return normalizeToUnitNorm(x);
+}
+
+/** Length-T 1/f (pink) noise via Hermitian-symmetric spectrum construction:
+ *  build half-spectrum with magnitudes ∝ 1/√k from independent complex
+ *  Gaussian coefficients, mirror as conjugates, IDFT, normalize to unit norm
+ *  (Σ x² = 1). DC is forced to zero so the input is mean-centred. */
+export function pinkNoiseInput(T: number, seed: number): number[] {
+  const gauss = makeGauss(mulberry32(seed));
+  const re = new Array<number>(T).fill(0);
+  const im = new Array<number>(T).fill(0);
+  const half = Math.floor(T / 2);
+  const SQRT_HALF = Math.SQRT1_2;
+  for (let k = 1; k <= half; k++) {
+    const scale = 1 / Math.sqrt(k);
+    if (k === T - k) {
+      // Nyquist bin (only when T even): must be real.
+      re[k] = gauss() * scale;
+      im[k] = 0;
+    } else {
+      re[k] = gauss() * scale * SQRT_HALF;
+      im[k] = gauss() * scale * SQRT_HALF;
+      re[T - k] = re[k];
+      im[T - k] = -im[k];
+    }
+  }
+  const out = new Array<number>(T).fill(0);
+  for (let n = 0; n < T; n++) {
+    let s = 0;
+    const twoPiN = (2 * Math.PI * n) / T;
+    for (let k = 0; k < T; k++) {
+      const a = twoPiN * k;
+      s += re[k] * Math.cos(a) - im[k] * Math.sin(a);
+    }
+    out[n] = s;
+  }
+  return normalizeToUnitNorm(out);
+}
+
+export function inputFromKind(kind: InputKind, T: number, seed: number): number[] {
+  if (kind === 'impulse') return impulseInput(T);
+  if (kind === 'white') return whiteNoiseInput(T, seed);
+  return pinkNoiseInput(T, seed);
+}
+
+/** y[t] = Σ_{k=0..t} g[t-k] · u[k]. For LTI systems with impulse response g
+ *  and h_0 = 0, this is exactly the target's output to input u. */
+export function convolveCausal(g: readonly number[], u: readonly number[]): number[] {
+  const T = u.length;
+  if (g.length !== T) {
+    throw new Error(`convolveCausal: g length ${g.length} ≠ u length ${T}`);
+  }
+  const out = new Array<number>(T).fill(0);
+  for (let t = 0; t < T; t++) {
+    let s = 0;
+    for (let k = 0; k <= t; k++) s += g[t - k] * u[k];
+    out[t] = s;
+  }
+  return out;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // (W, b, c) initialisation
 // ──────────────────────────────────────────────────────────────────────
 
@@ -149,21 +232,21 @@ export function initWBC(n: number, scale: number, seed: number): LinearRNN {
 // Forward + impulse response
 // ──────────────────────────────────────────────────────────────────────
 
-/** Impulse response g_t = cᵀ Wᵗ b for t = 0..T-1, plus the full hidden-state
- *  trajectory h_1..h_T (needed by the BPTT backward pass).
+/** Forward pass under arbitrary input x_t. Returns the output y_t = cᵀ h_{t+1}
+ *  along with the full hidden-state trajectory h_1..h_T (needed by BPTT).
  *  Storage layout: states[t·n + i] holds (h_{t+1})_i; states has length T·n. */
-function forwardImpulse(
+function forwardOnInput(
   rnn: LinearRNN,
-  T: number,
-): { g: Float64Array; states: Float64Array } {
+  x: readonly number[],
+): { y: Float64Array; states: Float64Array } {
   const { n, W, b, c } = rnn;
-  const g = new Float64Array(T);
+  const T = x.length;
+  const y = new Float64Array(T);
   const states = new Float64Array(T * n);
   const h = new Float64Array(n);
   const hNext = new Float64Array(n);
   for (let t = 0; t < T; t++) {
-    // hNext = W h + b · δ[t,0]
-    const xt = t === 0 ? 1 : 0;
+    const xt = x[t];
     for (let i = 0; i < n; i++) {
       let s = b[i] * xt;
       const row = i * n;
@@ -172,12 +255,17 @@ function forwardImpulse(
     }
     let yt = 0;
     for (let i = 0; i < n; i++) yt += c[i] * hNext[i];
-    g[t] = yt;
+    y[t] = yt;
     for (let i = 0; i < n; i++) states[t * n + i] = hNext[i];
-    // double-buffer
     for (let i = 0; i < n; i++) h[i] = hNext[i];
   }
-  return { g, states };
+  return { y, states };
+}
+
+function impulseInput(T: number): number[] {
+  const x = new Array<number>(T).fill(0);
+  x[0] = 1;
+  return x;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -191,16 +279,22 @@ export interface WBCGrads {
   dc: Float64Array;
 }
 
-export function gradientWBC(rnn: LinearRNN, gStar: readonly number[]): WBCGrads {
+export function gradientWBC(
+  rnn: LinearRNN,
+  input: readonly number[],
+  yStar: readonly number[],
+): WBCGrads {
   const { n, W, c } = rnn;
-  const T = gStar.length;
-  const { g, states } = forwardImpulse(rnn, T);
+  const T = yStar.length;
+  if (input.length !== T) {
+    throw new Error(`gradientWBC: input length ${input.length} ≠ yStar length ${T}`);
+  }
+  const { y, states } = forwardOnInput(rnn, input);
 
-  // Errors and loss.
   const e = new Float64Array(T);
   let loss = 0;
   for (let t = 0; t < T; t++) {
-    e[t] = g[t] - gStar[t];
+    e[t] = y[t] - yStar[t];
     loss += e[t] * e[t];
   }
   loss *= 0.5;
@@ -209,37 +303,27 @@ export function gradientWBC(rnn: LinearRNN, gStar: readonly number[]): WBCGrads 
   const db = new Float64Array(n);
   const dc = new Float64Array(n);
 
-  // Backward pass.
-  // λ_{t+1} is the gradient of L w.r.t. h_{t+1}. Recurrence:
-  //   λ_{T} = e_{T-1} · c
-  //   λ_{t+1} = e_t · c + Wᵀ λ_{t+2}     for t = T−2, …, 0
-  // dW += λ_{t+1} h_tᵀ (h_0 = 0, so t=0 outer product is 0)
-  // db = λ_1
-  // dc += e_t · h_{t+1}
-
-  const lambdaNext = new Float64Array(n);   // λ_{t+2}
-  const lambda = new Float64Array(n);       // λ_{t+1}
-  const hPrev = new Float64Array(n);        // h_t (for outer product)
+  // λ_{t+1} = e_t c + Wᵀ λ_{t+2}, with λ_{T+1} = 0.
+  const lambdaNext = new Float64Array(n);
+  const lambda = new Float64Array(n);
+  const hPrev = new Float64Array(n);
 
   for (let t = T - 1; t >= 0; t--) {
-    // lambda = e[t] * c + Wᵀ · lambdaNext
     for (let i = 0; i < n; i++) {
       let s = e[t] * c[i];
       for (let j = 0; j < n; j++) s += W[j * n + i] * lambdaNext[j];
       lambda[i] = s;
     }
-    // dc += e[t] * h_{t+1}
     for (let i = 0; i < n; i++) dc[i] += e[t] * states[t * n + i];
 
-    // h_t for outer product: h_t = states[(t-1)*n + ...] for t ≥ 1, else 0.
+    const xt = input[t];
+    for (let i = 0; i < n; i++) db[i] += xt * lambda[i];
+
     if (t === 0) {
       for (let i = 0; i < n; i++) hPrev[i] = 0;
-      // db = λ_1
-      for (let i = 0; i < n; i++) db[i] = lambda[i];
     } else {
       for (let i = 0; i < n; i++) hPrev[i] = states[(t - 1) * n + i];
     }
-    // dW += λ_{t+1} · h_tᵀ
     for (let i = 0; i < n; i++) {
       const li = lambda[i];
       if (li === 0) continue;
@@ -257,11 +341,13 @@ export function gradientWBC(rnn: LinearRNN, gStar: readonly number[]): WBCGrads 
 // Step
 // ──────────────────────────────────────────────────────────────────────
 
-export function stepWBC(rnn: LinearRNN, gStar: readonly number[], dt: number): {
-  rnn: LinearRNN;
-  loss: number;
-} {
-  const grads = gradientWBC(rnn, gStar);
+export function stepWBC(
+  rnn: LinearRNN,
+  input: readonly number[],
+  yStar: readonly number[],
+  dt: number,
+): { rnn: LinearRNN; loss: number } {
+  const grads = gradientWBC(rnn, input, yStar);
   const out = makeRNN(rnn.n);
   for (let i = 0; i < rnn.W.length; i++) out.W[i] = rnn.W[i] - dt * grads.dW[i];
   for (let i = 0; i < rnn.b.length; i++) out.b[i] = rnn.b[i] - dt * grads.db[i];
@@ -337,6 +423,11 @@ export interface DirectSimOptions {
   steps: number;
   snapshots?: number;
   rhoThreshold?: number;
+  /** Input sequence. Defaults to the unit impulse. */
+  input?: number[];
+  /** Target output for the chosen input. Defaults to target.gStar (impulse
+   *  response of the teacher), which is correct when input is the impulse. */
+  yStar?: number[];
 }
 
 export function simulateTrajectoryWBC(
@@ -347,8 +438,10 @@ export function simulateTrajectoryWBC(
   const N = opts.snapshots ?? 240;
   const total = opts.steps;
   const threshold = opts.rhoThreshold ?? 1e-2;
+  const T = target.gStar.length;
+  const input = opts.input ?? impulseInput(T);
+  const yStar = opts.yStar ?? target.gStar;
 
-  // Log-spaced snapshot schedule, mirroring gradientFlow.simulateTrajectory.
   const snapAt = new Set<number>();
   snapAt.add(0);
   for (let i = 0; i < N; i++) {
@@ -359,8 +452,7 @@ export function simulateTrajectoryWBC(
 
   const out: TraceSnapshot[] = [];
   let rnn = rnn0;
-  // Initial loss + state.
-  let { loss } = gradientWBC(rnn, target.gStar);
+  let { loss } = gradientWBC(rnn, input, yStar);
   let state = projectToModalState(rnn);
   out.push({
     tau: 0,
@@ -370,9 +462,10 @@ export function simulateTrajectoryWBC(
   });
 
   for (let n = 1; n <= total; n++) {
-    const r = stepWBC(rnn, target.gStar, opts.dt);
+    const r = stepWBC(rnn, input, yStar, opts.dt);
     rnn = r.rnn;
     loss = r.loss;
+    if (!Number.isFinite(loss)) break;
     if (snapAt.has(n)) {
       state = projectToModalState(rnn);
       out.push({

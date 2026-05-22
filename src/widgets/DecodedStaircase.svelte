@@ -36,7 +36,13 @@
     type TraceSnapshot,
     type ModalTarget,
   } from '../lib/gradientFlow';
-  import { randomTarget, totalDimOfModes } from '../lib/rnnTrain';
+  import {
+    randomTarget,
+    totalDimOfModes,
+    inputFromKind,
+    convolveCausal,
+    type InputKind,
+  } from '../lib/rnnTrain';
   import { zeros as zerosOfSystem, evalH } from '../lib/transferFn';
   import { expi, abs as cabs } from '../lib/complex';
 
@@ -47,6 +53,12 @@
   let initScaleLog = -2.5;
   $: initScale = Math.pow(10, initScaleLog);
   let runSeed = 0;
+  let inputKind: InputKind = 'white';
+
+  // Input + target response. Rebuilt by rebuildInputAndTarget(); kept here
+  // so the IO panel and the worker share the same arrays.
+  let inputSeq: number[] = [];
+  let yStar: number[] = [];
 
   // The training config — fixed; only target, initScale, and seed change per
   // run. Hand-tuned in the Phase-A modal version for a clean 30 k-step
@@ -70,10 +82,14 @@
   let zSvg: SVGSVGElement;
   let lossSvg: SVGSVGElement;
   let bodeSvg: SVGSVGElement;
+  let inputSvg: SVGSVGElement;
+  let outputSvg: SVGSVGElement;
   let errSvg: SVGSVGElement;
   let zPlane: ZPlane | null = null;
   let lossPlot: TimeSeries | null = null;
   let bodePlot: BodePlot | null = null;
+  let inputPlot: TimeSeries | null = null;
+  let outputPlot: TimeSeries | null = null;
   let errPlot: TimeSeries | null = null;
 
   const N_FREQ = 256;
@@ -143,11 +159,6 @@
     return pts;
   }
 
-  function errorAt(snap: TraceSnapshot): number[] {
-    const g = impulseResponse(snap.state, T_HORIZON);
-    return g.map((v, t) => v - target.gStar[t]);
-  }
-
   function redraw(): void {
     if (!trace.length || !zPlane || !lossPlot || !bodePlot) return;
     const snap = trace[Math.min(cursor, trace.length - 1)];
@@ -159,17 +170,45 @@
       { theta: freqTheta, magnitude: targetMag },
     );
 
-    errPlot?.update([
+    const gLive = impulseResponse(snap.state, T_HORIZON);
+    const yLive = inputKind === 'impulse' ? gLive : convolveCausal(gLive, inputSeq);
+    const zero = new Array(T_HORIZON).fill(0);
+
+    inputPlot?.update([
+      { id: 'zero', values: zero, color: 'var(--text-faint, #ccc)', style: 'line', width: 1 },
       {
-        id: 'zero',
-        values: new Array(T_HORIZON).fill(0),
-        color: 'var(--text-faint, #ccc)',
+        id: 'input',
+        values: inputSeq,
+        color: 'var(--text, #333)',
+        style: inputKind === 'impulse' ? 'stem' : 'line',
+        width: 1.2,
+      },
+    ]);
+
+    outputPlot?.update([
+      { id: 'zero', values: zero, color: 'var(--text-faint, #ccc)', style: 'line', width: 1 },
+      {
+        id: 'target',
+        values: yStar,
+        color: 'var(--accent-target, #888)',
         style: 'line',
-        width: 1,
+        width: 1.5,
+        dasharray: '4 3',
       },
       {
+        id: 'output',
+        values: yLive,
+        color: 'var(--accent-active, #d1495b)',
+        style: 'line',
+        width: 2,
+      },
+    ]);
+
+    errPlot?.update([
+      { id: 'zero', values: zero, color: 'var(--text-faint, #ccc)', style: 'line', width: 1 },
+      {
         id: 'error',
-        values: errorAt(snap),
+        values: yLive.map((v, t) => v - yStar[t]),
         color: 'var(--accent-active, #d1495b)',
         style: 'line',
         width: 2,
@@ -237,6 +276,11 @@
     redraw();
   }
 
+  function rebuildInputAndTarget(): void {
+    inputSeq = inputFromKind(inputKind, T_HORIZON, runSeed);
+    yStar = inputKind === 'impulse' ? target.gStar.slice() : convolveCausal(target.gStar, inputSeq);
+  }
+
   function rebuildBodeAndErrPlots(): void {
     const targetSys = toModalSystem({ modes: target.modes });
     targetMag = magOnHalfCircle(targetSys);
@@ -245,19 +289,67 @@
     const bodeYMax = Math.pow(10, Math.ceil(Math.log10(peak * 2)));
 
     // Both BodePlot and TimeSeries fix their y-range at construction, so
-    // recreate them when the target changes.
+    // recreate them when the target or input changes.
     bodeSvg.replaceChildren();
     bodePlot = new BodePlot(bodeSvg, { yMin: 0.05, yMax: bodeYMax, yLog: true });
 
-    const errYAbs = 1.1 * Math.max(1e-6, ...target.gStar.map(Math.abs));
+    const PANEL_W = 560;
+    const TOP_M = 14;
+    const MID_M = 2;
+    const BOT_M = 36;
+    const LEFT_M = 14;
+    const RIGHT_M = 14;
+    const LABEL_FS = 12;
+
+    const inputYAbs = 1.1 * Math.max(1e-3, ...inputSeq.map(Math.abs));
+    inputSvg.replaceChildren();
+    inputPlot = new TimeSeries(inputSvg, {
+      width: PANEL_W,
+      height: 60,
+      xLabel: '',
+      yLabelParts: [{ text: 'input u(t)', color: 'var(--text, #333)' }],
+      yLabelHorizontal: true,
+      yMin: -inputYAbs,
+      yMax: inputYAbs,
+      hideXTicks: true,
+      hideYTicks: true,
+      margin: { top: TOP_M, right: RIGHT_M, bottom: MID_M, left: LEFT_M },
+      labelFontSize: LABEL_FS,
+    });
+
+    const outputYAbs = 1.1 * Math.max(1e-3, ...yStar.map(Math.abs));
+    outputSvg.replaceChildren();
+    outputPlot = new TimeSeries(outputSvg, {
+      width: PANEL_W,
+      height: 86,
+      xLabel: '',
+      yLabelParts: [
+        { text: 'y(t)', color: 'var(--accent-active, #d1495b)' },
+        { text: ',  ', color: '#555' },
+        { text: 'y*(t)', color: 'var(--accent-target, #888)' },
+      ],
+      yLabelHorizontal: true,
+      yMin: -outputYAbs,
+      yMax: outputYAbs,
+      hideXTicks: true,
+      hideYTicks: true,
+      margin: { top: TOP_M, right: RIGHT_M, bottom: MID_M, left: LEFT_M },
+      labelFontSize: LABEL_FS,
+    });
+
+    const errYAbs = 1.1 * Math.max(1e-6, ...yStar.map(Math.abs));
     errSvg.replaceChildren();
     errPlot = new TimeSeries(errSvg, {
-      width: 560,
-      height: 200,
+      width: PANEL_W,
+      height: 84,
       xLabel: 'response time t',
-      yLabel: 'error  g(t) − g*(t)',
+      yLabelParts: [{ text: 'error', color: 'var(--accent-active, #d1495b)' }],
+      yLabelHorizontal: true,
       yMin: -errYAbs,
       yMax: errYAbs,
+      hideYTicks: true,
+      margin: { top: TOP_M, right: RIGHT_M, bottom: BOT_M, left: LEFT_M },
+      labelFontSize: LABEL_FS,
     });
   }
 
@@ -266,6 +358,7 @@
     worker?.terminate();
 
     target = randomTarget({ totalDim: TOTAL_DIM, T: T_HORIZON, seed: runSeed });
+    rebuildInputAndTarget();
     rebuildBodeAndErrPlots();
 
     loading = true;
@@ -296,6 +389,8 @@
         steps: cfg.steps,
         snapshots: cfg.snapshots,
         rhoThreshold: cfg.rhoThreshold,
+        input: inputSeq,
+        yStar,
       },
     });
   }
@@ -309,16 +404,30 @@
     startTraining();
   }
 
+  function setInputKind(k: InputKind): void {
+    if (k === inputKind) return;
+    inputKind = k;
+    // Same init + target; only the input (and thus yStar) change.
+    startTraining();
+  }
+
+  const INPUT_KIND_OPTIONS: { id: InputKind; label: string }[] = [
+    { id: 'impulse', label: 'impulse δ(t)' },
+    { id: 'white', label: 'white noise' },
+    { id: 'pink', label: '1/f noise' },
+  ];
+
   onMount(() => {
     zPlane = new ZPlane(zSvg, {});
     lossPlot = new TimeSeries(lossSvg, {
       width: 560,
-      height: 180,
+      height: 130,
       xLabel: 'training time τ (snapshot index)',
       yLabel: 'loss',
       yLog: true,
+      margin: { top: 6, right: 14, bottom: 40, left: 56 },
+      labelFontSize: 12,
     });
-    rebuildBodeAndErrPlots();
     startTraining();
   });
 
@@ -351,13 +460,19 @@
     </div>
   </div>
 
-  <div class="widget-panel widget-panel--error">
+  <div class="widget-panel widget-panel--io-stack">
     <div class="widget-panel-header">
-      time-domain error &nbsp;—&nbsp;
-      <span class="legend-swatch legend-swatch--live"></span>
-      g(t) − g*(t), the residual whose squared sum is L(τ)
+      {#if inputKind === 'impulse'}
+        impulse response
+      {:else if inputKind === 'white'}
+        response to white-noise input
+      {:else}
+        response to 1/f-noise input
+      {/if}
     </div>
-    <svg bind:this={errSvg}></svg>
+    <svg class="io-row io-row--input" bind:this={inputSvg}></svg>
+    <svg class="io-row io-row--output" bind:this={outputSvg}></svg>
+    <svg class="io-row io-row--error" bind:this={errSvg}></svg>
   </div>
 
   <div class="widget-panel widget-panel--loss">
@@ -380,32 +495,53 @@
         {/if}
       </span>
     </div>
-    <input
-      type="range"
-      min="0"
-      max={Math.max(1, trace.length - 1)}
-      value={cursor}
-      on:input={onScrub}
-      disabled={loading || !trace.length}
-    />
-    <label class="init-scale-row">
-      init scale σ₀ = {initScale.toExponential(1)}
-      <input
-        type="range"
-        min={-4}
-        max={-1}
-        step={0.25}
-        bind:value={initScaleLog}
-        on:change={onInitScaleCommit}
-        disabled={loading}
-      />
-    </label>
+    <div class="slider-row">
+      <label class="slider-cell">
+        <span class="slider-cell-label">training time τ</span>
+        <input
+          type="range"
+          min="0"
+          max={Math.max(1, trace.length - 1)}
+          value={cursor}
+          on:input={onScrub}
+          disabled={loading || !trace.length}
+        />
+      </label>
+      <label class="slider-cell">
+        <span class="slider-cell-label">init scale σ₀ = {initScale.toExponential(1)}</span>
+        <input
+          type="range"
+          min={-4}
+          max={-1}
+          step={0.25}
+          bind:value={initScaleLog}
+          on:change={onInitScaleCommit}
+          disabled={loading}
+        />
+      </label>
+    </div>
+    <div class="input-kind-row">
+      <span class="input-kind-label">training input&nbsp;</span>
+      <div class="seg" role="radiogroup" aria-label="training input">
+        {#each INPUT_KIND_OPTIONS as opt}
+          <button
+            type="button"
+            class="seg-btn"
+            class:seg-btn--active={inputKind === opt.id}
+            on:click={() => setInputKind(opt.id)}
+            disabled={loading}
+            role="radio"
+            aria-checked={inputKind === opt.id}
+          >{opt.label}</button>
+        {/each}
+      </div>
+    </div>
     <p class="widget-hint">
       The student is parameterised in raw (W, b, c) coordinates — every entry
-      Gaussian-random at scale σ₀. Each "new run" reseeds <em>both</em> the
-      random target (ghost poles) and the random init. Eigenvalues of W now
-      drift during training; the staircase below is typical, not guaranteed.
-      Drop σ₀ and the cliffs sharpen; raise σ₀ and the descent smears out.
+      Gaussian-random at scale σ₀. "Random init &amp; target" reseeds both the
+      target system and the init; the input-type toggle keeps both fixed and
+      only changes what u(t) the trainer sees. Compare what shape of cliffs
+      (or none) different input statistics carve out of the loss curve.
     </p>
   </div>
 </div>
@@ -432,14 +568,22 @@
   .widget-panel--loss {
     min-width: 0;
   }
-  .widget-panel--error {
+  .widget-panel--io-stack {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
+  .widget-panel--io-stack .io-row {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .widget-panel--io-stack .io-row--input { max-height: 60px; }
+  .widget-panel--io-stack .io-row--output { max-height: 86px; }
+  .widget-panel--io-stack .io-row--error { max-height: 84px; }
   .widget-panel--loss :global(svg) {
-    max-height: 180px;
-  }
-  .widget-panel--error :global(svg) {
-    max-height: 200px;
+    max-height: 130px;
   }
   .widget-row--top {
     display: grid;
@@ -455,11 +599,64 @@
   .staircase-controls input[type='range'] {
     width: 100%;
   }
-  .init-scale-row {
+  .slider-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4, 16px);
+    font-size: 0.85rem;
+  }
+  .slider-cell {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+  }
+  .slider-cell input[type='range'] {
+    width: 100%;
+  }
+  .slider-cell-label {
+    color: var(--text-soft, #555);
+  }
+  @media (max-width: 720px) {
+    .slider-row { grid-template-columns: 1fr; }
+  }
+  .input-kind-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 0.85rem;
+    flex-wrap: wrap;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--text-faint, #bbb);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 4px 10px;
+    font: inherit;
+    cursor: pointer;
+    color: var(--text-soft, #555);
+    border-right: 1px solid var(--text-faint, #bbb);
+  }
+  .seg-btn:last-child { border-right: 0; }
+  .seg-btn:hover:not(:disabled) {
+    background: var(--surface-soft, #f3f3f3);
+  }
+  .seg-btn--active {
+    background: var(--accent-active, #d1495b);
+    color: white;
+  }
+  .seg-btn--active:hover:not(:disabled) {
+    background: var(--accent-active, #d1495b);
+  }
+  .seg-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .staircase-stats {
     font-family: var(--font-mono, JetBrains Mono, monospace);
@@ -469,7 +666,7 @@
   }
   .widget-panel--bode .widget-panel-header,
   .widget-panel--zplane .widget-panel-header,
-  .widget-panel--error .widget-panel-header,
+  .widget-panel--io-stack .widget-panel-header,
   .widget-panel--loss .widget-panel-header {
     font-size: 12.5px;
   }

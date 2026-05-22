@@ -41,6 +41,10 @@ export interface TrainConfig {
   steps: number;
   snapshots: number;
   rhoThreshold: number;
+  /** Optional input sequence for the direct trainer. Defaults to impulse. */
+  input?: number[];
+  /** Optional target output for the chosen input. Defaults to target.gStar. */
+  yStar?: number[];
 }
 
 export type TrainMsg = { kind: 'run'; config: TrainConfig };
@@ -65,6 +69,8 @@ self.onmessage = (ev: MessageEvent<TrainMsg>) => {
       steps: cfg.steps,
       snapshots: cfg.snapshots,
       rhoThreshold: cfg.rhoThreshold,
+      input: cfg.input,
+      yStar: cfg.yStar,
     });
   } else {
     const target = cfg.target ?? defaultTarget(cfg.T ?? 160);
