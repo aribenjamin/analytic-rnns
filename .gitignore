@@ -15,3 +15,6 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+# Claude Code — per-checkout, machine-local (assigned by scripts/preview-port.sh)
+.claude/launch.json
