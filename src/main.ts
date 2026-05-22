@@ -52,14 +52,14 @@ function labelFromId(id: string): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// <d-footnote> custom element: auto-numbered hover/click footnotes.
+// <d-popup> custom element: auto-numbered inline popup notes.
 // ───────────────────────────────────────────────────────────────────────
-let footnoteCounter = 0;
+let popupCounter = 0;
 
-class DFootnote extends HTMLElement {
+class DPopup extends HTMLElement {
   connectedCallback(): void {
-    footnoteCounter += 1;
-    const num = footnoteCounter;
+    popupCounter += 1;
+    const num = popupCounter;
 
     const content = this.innerHTML;
     this.innerHTML = '';
@@ -68,7 +68,7 @@ class DFootnote extends HTMLElement {
     marker.className = 'fn-marker';
     marker.textContent = String(num);
     marker.setAttribute('role', 'button');
-    marker.setAttribute('aria-label', `Footnote ${num}`);
+    marker.setAttribute('aria-label', `Note ${num}`);
     marker.tabIndex = 0;
 
     const popup = document.createElement('span');
@@ -81,7 +81,7 @@ class DFootnote extends HTMLElement {
     const toggle = (e: Event): void => {
       e.stopPropagation();
       const opening = !this.classList.contains('fn-open');
-      document.querySelectorAll('d-footnote.fn-open').forEach((el) =>
+      document.querySelectorAll('d-popup.fn-open').forEach((el) =>
         el.classList.remove('fn-open', 'fn-flip'),
       );
       if (opening) {
@@ -103,15 +103,85 @@ class DFootnote extends HTMLElement {
   }
 }
 
-if (!customElements.get('d-footnote')) {
-  customElements.define('d-footnote', DFootnote);
+if (!customElements.get('d-popup')) {
+  customElements.define('d-popup', DPopup);
 }
 
 document.addEventListener('click', () => {
-  document.querySelectorAll('d-footnote.fn-open').forEach((el) =>
+  document.querySelectorAll('d-popup.fn-open').forEach((el) =>
     el.classList.remove('fn-open', 'fn-flip'),
   );
 });
+
+// ───────────────────────────────────────────────────────────────────────
+// <d-footnote> custom element: real bottom-of-article footnotes.
+// ───────────────────────────────────────────────────────────────────────
+let footnoteCounter = 0;
+const footnoteEntries: { num: number; html: string }[] = [];
+
+class DFootnote extends HTMLElement {
+  connectedCallback(): void {
+    footnoteCounter += 1;
+    const num = footnoteCounter;
+
+    const content = this.innerHTML;
+    this.innerHTML = '';
+
+    footnoteEntries.push({ num, html: content });
+
+    const marker = document.createElement('a');
+    marker.className = 'fn-inline-marker';
+    marker.textContent = String(num);
+    marker.href = `#fn-${num}`;
+    marker.id = `fn-ref-${num}`;
+    marker.setAttribute('aria-label', `Footnote ${num}`);
+
+    this.appendChild(marker);
+
+    queueFootnoteRender();
+  }
+}
+
+let footnoteRenderQueued = false;
+function queueFootnoteRender(): void {
+  if (footnoteRenderQueued) return;
+  footnoteRenderQueued = true;
+  requestAnimationFrame(() => {
+    renderFootnoteList();
+    footnoteRenderQueued = false;
+  });
+}
+
+function renderFootnoteList(): void {
+  let list = document.querySelector('.d-footnote-list');
+  if (!list) {
+    list = document.createElement('ol');
+    list.className = 'd-footnote-list';
+    const article = document.querySelector('.article');
+    if (article) {
+      const refsSection = document.getElementById('sec-references');
+      if (refsSection) {
+        article.insertBefore(list, refsSection);
+      } else {
+        article.appendChild(list);
+      }
+    }
+  }
+  list.innerHTML = '';
+  for (const entry of footnoteEntries) {
+    const li = document.createElement('li');
+    li.id = `fn-${entry.num}`;
+    li.dataset.fnNum = String(entry.num);
+    li.innerHTML =
+      entry.html +
+      ` <a href="#fn-ref-${entry.num}" class="fn-backref" aria-label="Back to text">↩</a>`;
+    list.appendChild(li);
+  }
+}
+
+if (!customElements.get('d-footnote')) {
+  customElements.define('d-footnote', DFootnote);
+}
 
 // ───────────────────────────────────────────────────────────────────────
 // Floating TOC: highlight whichever section the reader is currently in.

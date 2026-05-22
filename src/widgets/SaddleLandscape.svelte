@@ -393,8 +393,14 @@
   }
 
   .widget-panel--landscape {
-    aspect-ratio: 1 / 1;
     position: relative;
+    /* The 1:1 ratio lives on .landscape-stage, not this panel. A panel-level
+       aspect-ratio gets echoed off the grid-stretched height back into width,
+       overflowing the track and covering the L(τ) / e(t) panels. align-self:
+       start keeps the panel unstretched; min-width: 0 lets it shrink to its
+       track instead of its content's intrinsic width. */
+    min-width: 0;
+    align-self: start;
   }
 
   .widget-panel--loss {
@@ -420,7 +426,7 @@
   .landscape-stage {
     position: relative;
     width: 100%;
-    flex: 1 1 auto;
+    aspect-ratio: 1 / 1;
   }
 
   .landscape-stage canvas {

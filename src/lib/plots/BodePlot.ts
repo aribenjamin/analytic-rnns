@@ -51,9 +51,10 @@ export class BodePlot {
   }
 
   private initLayout(): void {
-    // Fixed internal coordinate system; CSS handles external sizing.
-    this.width = this.opts.width || 600;
-    this.height = this.opts.height || 300;
+    // Fixed internal coordinate system. Keep it near the real rendered size
+    // (~300px) so axis labels aren't downscaled into illegibility.
+    this.width = this.opts.width || 320;
+    this.height = this.opts.height || 200;
     this.svg
       .attr('viewBox', `0 0 ${this.width} ${this.height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet');
