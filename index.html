@@ -377,9 +377,12 @@
         </p>
 
         <p>
-          What this doesn't tell us is which saddle the dynamics
-          actually visits, or in what order — that is the dynamical
-          question, and we take it up next.
+          Notice what happens at the origin $b = c = 0$: every residue
+          vanishes at once, so <em>all</em> poles are simultaneously
+          cancelled by zeros. This is the highest saddle — every mode is
+          an unstable direction — and small random initialisation places
+          the network nearby. The modes then race to escape, and the
+          order they do so is the subject of the next section.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
@@ -428,9 +431,14 @@
         </ul>
 
         <p>
-          The role of $r_k^{\ast}$ in § 5 was a stand-in for $J_k$
-          (with $S_k^{(x)}$ folded in by a choice of normalisation).
-          Now we keep them separate.
+          The simplified loss in § 5,
+          $\tfrac{1}{2}|r_k^{\ast} - \alpha_k\beta_k|^2$, is this
+          same expression with $r_k^{\ast} = J_k/S_k^{(x)}$ and an
+          overall factor of $S_k^{(x)}$. That factor doesn't affect
+          the saddle structure (zeros of the gradient, sign of the
+          Hessian), but it does affect the escape <em>rate</em> —
+          which depends on $J_k$, not $r_k^{\ast}$. So we need both
+          constants from here on.
         </p>
 
         <p>
