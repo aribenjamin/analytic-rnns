@@ -395,6 +395,13 @@
   .widget-panel--landscape {
     aspect-ratio: 1 / 1;
     position: relative;
+    /* Keep the square panel sized by its grid track. Without min-width: 0 a
+       grid item refuses to shrink below its content's intrinsic size; without
+       align-self: start a taller right column would stretch this panel and
+       aspect-ratio would echo that height back into width, overflowing the
+       track and covering the L(τ) / e(t) panels. */
+    min-width: 0;
+    align-self: start;
   }
 
   .widget-panel--loss {
