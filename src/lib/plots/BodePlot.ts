@@ -24,6 +24,14 @@ export interface BodePlotOptions {
   showGrid?: boolean; // default true
 }
 
+export interface BodeOverlay {
+  data: BodeData;
+  color: string;
+  dasharray?: string;
+  width?: number;
+  opacity?: number;
+}
+
 export class BodePlot {
   private svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
   private opts: Required<BodePlotOptions>;
@@ -35,6 +43,7 @@ export class BodePlot {
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
   private mainPath!: d3.Selection<SVGPathElement, unknown, null, undefined>;
   private ghostPath!: d3.Selection<SVGPathElement, unknown, null, undefined>;
+  private overlayGroup!: d3.Selection<SVGGElement, unknown, null, undefined>;
 
   constructor(svgEl: SVGSVGElement, opts: BodePlotOptions = {}) {
     this.svg = d3.select(svgEl);
@@ -143,6 +152,7 @@ export class BodePlot {
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '4 3')
       .attr('opacity', 0.8);
+    this.overlayGroup = root.append('g').attr('class', 'bode-overlays');
     this.mainPath = root
       .append('path')
       .attr('class', 'bode-main')
@@ -151,7 +161,7 @@ export class BodePlot {
       .attr('stroke-width', 2);
   }
 
-  update(data: BodeData, ghost?: BodeData): void {
+  update(data: BodeData, ghost?: BodeData, overlays?: BodeOverlay[]): void {
     const { xScale, yScale } = this;
     const allowZero = !this.opts.yLog;
     const line = d3
@@ -166,6 +176,21 @@ export class BodePlot {
       this.ghostPath.attr('d', line(g) ?? '').style('display', null);
     } else {
       this.ghostPath.style('display', 'none');
+    }
+
+    this.overlayGroup.selectAll('path').remove();
+    if (overlays) {
+      for (const ov of overlays) {
+        const pts = ov.data.theta.map((t, i) => ({ theta: t, mag: ov.data.magnitude[i] }));
+        this.overlayGroup
+          .append('path')
+          .attr('fill', 'none')
+          .attr('stroke', ov.color)
+          .attr('stroke-width', ov.width ?? 1.5)
+          .attr('stroke-dasharray', ov.dasharray ?? '3 4')
+          .attr('opacity', ov.opacity ?? 0.7)
+          .attr('d', line(pts) ?? '');
+      }
     }
   }
 }

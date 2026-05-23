@@ -134,7 +134,7 @@ export function totalDimOfModes(modes: Mode[]): number {
 // Input sequences for the (W, b, c) trainer
 // ──────────────────────────────────────────────────────────────────────
 
-export type InputKind = 'impulse' | 'white' | 'pink';
+export type InputKind = 'impulse' | 'white' | 'pink' | 'lowpass' | 'highpass';
 
 /** Scale so Σ x_t² = 1 — i.e. the input has the same total energy as the
  *  unit impulse. This keeps the gradient magnitudes comparable to impulse
@@ -191,9 +191,81 @@ export function pinkNoiseInput(T: number, seed: number): number[] {
   return normalizeToUnitNorm(out);
 }
 
+/** Length-T lowpass noise: spectral envelope is 1 for k < cutoff·T/2, tapering
+ *  to zero above. Hermitian-symmetric construction like pinkNoiseInput. */
+export function lowpassInput(T: number, seed: number, cutoff = 0.35): number[] {
+  const gauss = makeGauss(mulberry32(seed));
+  const re = new Array<number>(T).fill(0);
+  const im = new Array<number>(T).fill(0);
+  const half = Math.floor(T / 2);
+  const kCut = Math.floor(cutoff * half);
+  const SQRT_HALF = Math.SQRT1_2;
+  for (let k = 1; k <= half; k++) {
+    const env = k <= kCut ? 1 : Math.exp(-3 * ((k - kCut) / Math.max(1, half - kCut)));
+    if (env < 1e-6) continue;
+    if (k === T - k) {
+      re[k] = gauss() * env;
+      im[k] = 0;
+    } else {
+      re[k] = gauss() * env * SQRT_HALF;
+      im[k] = gauss() * env * SQRT_HALF;
+      re[T - k] = re[k];
+      im[T - k] = -im[k];
+    }
+  }
+  const out = new Array<number>(T).fill(0);
+  for (let n = 0; n < T; n++) {
+    let s = 0;
+    const twoPiN = (2 * Math.PI * n) / T;
+    for (let k = 0; k < T; k++) {
+      const a = twoPiN * k;
+      s += re[k] * Math.cos(a) - im[k] * Math.sin(a);
+    }
+    out[n] = s;
+  }
+  return normalizeToUnitNorm(out);
+}
+
+/** Length-T highpass noise: spectral envelope is 0 below cutoff·T/2, tapering
+ *  to 1 above. Mirror of lowpassInput. */
+export function highpassInput(T: number, seed: number, cutoff = 0.65): number[] {
+  const gauss = makeGauss(mulberry32(seed));
+  const re = new Array<number>(T).fill(0);
+  const im = new Array<number>(T).fill(0);
+  const half = Math.floor(T / 2);
+  const kCut = Math.floor(cutoff * half);
+  const SQRT_HALF = Math.SQRT1_2;
+  for (let k = 1; k <= half; k++) {
+    const env = k >= kCut ? 1 : Math.exp(-3 * ((kCut - k) / Math.max(1, kCut)));
+    if (env < 1e-6) continue;
+    if (k === T - k) {
+      re[k] = gauss() * env;
+      im[k] = 0;
+    } else {
+      re[k] = gauss() * env * SQRT_HALF;
+      im[k] = gauss() * env * SQRT_HALF;
+      re[T - k] = re[k];
+      im[T - k] = -im[k];
+    }
+  }
+  const out = new Array<number>(T).fill(0);
+  for (let n = 0; n < T; n++) {
+    let s = 0;
+    const twoPiN = (2 * Math.PI * n) / T;
+    for (let k = 0; k < T; k++) {
+      const a = twoPiN * k;
+      s += re[k] * Math.cos(a) - im[k] * Math.sin(a);
+    }
+    out[n] = s;
+  }
+  return normalizeToUnitNorm(out);
+}
+
 export function inputFromKind(kind: InputKind, T: number, seed: number): number[] {
   if (kind === 'impulse') return impulseInput(T);
   if (kind === 'white') return whiteNoiseInput(T, seed);
+  if (kind === 'lowpass') return lowpassInput(T, seed);
+  if (kind === 'highpass') return highpassInput(T, seed);
   return pinkNoiseInput(T, seed);
 }
 

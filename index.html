@@ -58,9 +58,9 @@
         <li><a href="#sec-transfer" data-toc-target="sec-transfer"><span class="toc-num">3</span>Transfer functions, gently</a></li>
         <li><a href="#sec-residue" data-toc-target="sec-residue"><span class="toc-num">4</span>The residue is a volume knob</a></li>
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">5</span>Cancellation is a saddle</a></li>
-        <li><a href="#sec-escape" data-toc-target="sec-escape"><span class="toc-num">6</span>Escape rates and the order of modes</a></li>
-        <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">7</span>The staircase, decoded</a></li>
-        <li><a href="#sec-spiral" data-toc-target="sec-spiral"><span class="toc-num">8</span>Lines and spirals</a></li>
+        <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">6</span>The staircase, decoded</a></li>
+        <li><a href="#sec-bias" data-toc-target="sec-bias"><span class="toc-num">7</span>The bias toward simplicity</a></li>
+        <li><a href="#sec-collision" data-toc-target="sec-collision"><span class="toc-num">8</span>Real before complex</a></li>
         <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
@@ -296,7 +296,7 @@
 
         <p>
           The reason comes from the product structure of residues.
-          Recall from § 4 that the residue factorises as
+          Recall that the residue factorises as
           $r_k = \alpha_k \beta_k$, where $\alpha_k$ is how strongly
           the readout $c$ observes mode $k$, and $\beta_k$ is how strongly
           the input $b$ excites it. The output depends on mode $k$
@@ -311,7 +311,7 @@
           is mode $k$'s response to the input — the input convolved
           with the pure exponential $p_k^{\,s}$ that mode $k$ rings
           at. (This is just the $r_k\,p_k^{\,s}$ term of the impulse
-          response from § 3, applied to the input stream.)
+          response from the <a href="#sec-transfer">transfer-function section</a>, applied to the input stream.)
         </p>
 
         <p>
@@ -385,275 +385,430 @@
           vanishes at once, so <em>all</em> poles are simultaneously
           cancelled by zeros. This is the highest saddle — every mode is
           an unstable direction — and small random initialisation places
-          the network nearby. The modes then race to escape, and the
-          order they do so is the subject of the next section.
+          the network nearby. The modes then race to escape — and the
+          loss descends in steps, one for each mode that breaks free.
         </p>
 
         <div id="widget-saddle-landscape" class="widget-slot widget-l-middle"></div>
       </section>
 
-      <section id="sec-escape" class="article-section">
-        <p class="section-number">§ 6</p>
-        <h2>Escape rates and the order of modes</h2>
-
-        <p>
-          We have a saddle at $\alpha_k = \beta_k = 0$ for every mode.
-          The dynamical question is: starting from a tiny perturbation,
-          how fast does each mode escape? The fastest mode wins the
-          race and sets the first step of the staircase.
-        </p>
-
-        <p>
-          We start from the restricted loss in $(\alpha_k, \beta_k)$.
-          Writing $\Delta_t = y_t - \sum_{j \neq k} r_j\,\phi_j(t)$ for
-          the residual that the other modes leave behind, and expanding
-          the squared error, the loss is
-        </p>
-
-        $$\mathcal{L}(\alpha_k,\beta_k) \;=\; \mathcal{L}_{\perp}
-          \;-\; J_k\,\alpha_k\beta_k
-          \;+\; \tfrac{1}{2}\,S_k^{(x)}\,(\alpha_k\beta_k)^2,$$
-
-        <p>
-          where two data-dependent constants have appeared:
-        </p>
-
-        <ul>
-          <li>
-            $J_k \;=\; \tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_k(t)$ (averaged over training data)
-            is the <em>cross-energy</em>: the projection of the
-            unexplained residual onto mode $k$'s response. It measures
-            how much of the target this mode could still pick up.
-            Roughly: target spectral content at mode $k$'s frequency,
-            weighted by how strongly the input excites that frequency.
-          </li>
-          <li>
-            $S_k^{(x)} \;=\; \tfrac{1}{T}\textstyle\sum_t |\phi_k(t)|^2$ (averaged over training data)
-            is the <em>input energy</em> at mode $k$: how loudly the
-            input drives this mode under the data distribution.
-          </li>
-        </ul>
-
-        <p>
-          The simplified loss in § 5,
-          $\tfrac{1}{2}|r_k^{\ast} - \alpha_k\beta_k|^2$, is this
-          same expression with $r_k^{\ast} = J_k/S_k^{(x)}$ and an
-          overall factor of $S_k^{(x)}$. That factor doesn't affect
-          the saddle structure (zeros of the gradient, sign of the
-          Hessian), but it does affect the escape <em>rate</em> —
-          which depends on $J_k$, not $r_k^{\ast}$. So we need both
-          constants from here on.
-        </p>
-
-        <p>
-          Under gradient flow on $(c, b)$ with poles fixed, the Hessian
-          at the saddle $(c, b) = (0, 0)$ has a block structure (derivation below <d-footnote>
-          <strong>Derivation.</strong>
-          At the saddle all $\alpha_k = \beta_k = 0$, so
-          $c = \sum_k \alpha_k\,u_k = 0$ and $h_t = 0$. This makes
-          $\partial\hat{y}_t/\partial W = 0$: the $W$-gradient vanishes,
-          the eigenvectors are frozen, and the escape is entirely
-          in $(c, b)$.
-          <br><br>
-          <em>The $c$-gradient.</em>
-          $\;\dot{c} = \tfrac{1}{T}\sum_t \Delta_t\,h_t$ with
-          $h_t = \sum_j \beta_j\,\phi_j(t)\,v_j$. Projecting onto
-          mode $k$:
-          $$\dot{\alpha}_k \;=\; \dot{c}^\top v_k
-          \;=\; \sum_j (v_j^\top v_k)\;\beta_j
-          \;\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_j(t).$$
-          <em>The $b$-gradient.</em>
-          By the same logic, using
-          $(W^{t-1-s})^\top c = \sum_j p_j^{t-1-s}\,\alpha_j\,u_j$:
-          $$\dot{\beta}_k \;=\; u_k^\top \dot{b}
-          \;=\; \sum_j (u_k^\top u_j)\;\alpha_j
-          \;\tfrac{1}{T}\textstyle\sum_t \Delta_t\,\phi_j(t).$$
-          At the saddle ($\alpha_k = \beta_k = 0$ for all $k$),
-          both expressions vanish — it is a true critical point.
-          The Hessian inherits the Saxe block form with
-          cross-coupling matrix $M = -\sum_k J_k\,v_k\,u_k^\top$.
-          <br><br>
-          <em>Normal $W$.</em>
-          The eigenvectors are orthonormal, so
-          $M^\top M = \sum_k J_k^2\,u_k\,u_k^\top$ and the singular
-          values are $|J_k|$ — modes decouple exactly.
-          <br><br>
-          <em>Non-normal $W$.</em>
-          The Gram matrix $\Gamma_{jk} = v_j^\top v_k$ couples
-          different modes in the SVD of $M$. A single isolated mode
-          contributes $|J_k|\,\|v_k\|\,\|u_k\|$ to the escape rate —
-          non-normality boosts learning speed.
-          </d-footnote>) 
-          which is very similar to what we see for deep linear
-          networks:
-        </p>
-
-        $$H \;=\; \begin{pmatrix} 0 & M \\ M^{\!\top} & 0 \end{pmatrix},
-          \qquad M \;=\; -\textstyle\sum_k J_k\,v_k\,u_k^{\!\top}.$$
-
-        <p>
-          The escape rates from the saddle are the singular values of
-          $M$. For normal $W$ (e.g. symmetric), the eigenvectors are
-          orthonormal and the singular values are simply
-          $|J_k|$ — each mode escapes independently at a rate set by
-          its cross-energy. The mode with the largest $|J_k|$ escapes
-          first and settles at residue $r_k = J_k / S_k^{(x)}$. The
-          same structure recurs at each subsequent saddle with
-          cross-energies recomputed against the updated residual.
-        </p>
-
-        <p>
-          So the order in which modes activate is set by
-          $|J_k|$, and the gaps between cross-energies determine how
-          clean the staircase looks. Two modes with similar $|J_k|$
-          escape almost simultaneously and blur their steps;
-          well-separated $|J_k|$ give sharp, well-spaced plateaux.
-          Because $J_k$ folds in the input energy at mode $k$'s
-          frequency, the data distribution reshapes the ordering —
-          a mode the network <em>can't hear</em> (weak input at that
-          frequency) is learned last, regardless of how much of the
-          target lives there.
-        </p>
-
-        <p>
-          Everything so far is a real number — the escape rate $|J_k|$
-          that sets the ordering. But the modes live in the complex
-          plane, and a rate alone doesn't say which direction the zero
-          leaves the pole. In feedforward networks this question never
-          arises: singular values are real and escape is along a fixed
-          axis. In $\mathbb{C}$, the zero can depart at any angle.
-          What picks the direction? § 8 takes this up after we see the
-          full staircase in action.
-        </p>
-      </section>
-
       <section id="sec-staircase" class="article-section">
-        <p class="section-number">§ 7</p>
+        <p class="section-number">§ 6</p>
         <h2>The staircase, decoded</h2>
 
         <p>
           Train a small recurrent network on a multi-frequency target, and
           the loss descends in steps. Each step is one pole–zero pair
-          separating in the complex plane. The order in which the pairs
-          separate is set by the cross-energies $|J_k|$ from § 6 — the
-          product of the target's spectral content at each mode's
-          frequency and the input's energy there.
+          separating in the complex plane — one mode escaping its saddle.
+          The staircase is the signature of sequential mode activation.
         </p>
 
         <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
 
       </section>
 
-      <section id="sec-spiral" class="article-section">
-        <p class="section-number">§ 8</p>
-        <h2>Direction in ℂ: lines and spirals</h2>
+      <section id="sec-bias" class="article-section">
+        <p class="section-number">§ 7</p>
+        <h2>The bias toward simplicity</h2>
 
         <p class="lede">
-          § 7 showed the staircase: each cliff in the loss is one pole–zero
-          pair separating in the complex plane. This section zooms into a
-          single one of those separations and asks what <em>shape</em> it
-          traces in the complex plane.
+          The <a href="#sec-staircase">staircase</a> shows modes
+          activating one by one — but <em>which</em> modes, in what
+          order, and what does each plateau represent? To answer this
+          we need to understand the escape rate at each saddle.
+        </p>
+
+        <h3>The feedforward analogy</h3>
+
+        <p>
+          In Saxe et al.'s deep linear networks, small-scale
+          initialisation biases learning toward <em>low-rank</em>
+          linear maps. The network first learns a rank-1 approximation
+          to the target, then rank-2, and so on — each step adding one
+          singular value's worth of complexity. Here the story is the
+          same, with <em>dynamical order</em> replacing <em>matrix
+          rank</em>: the network builds a low-order rational transfer
+          function that captures as much of the target as possible
+          with as few poles as possible.
         </p>
 
         <p>
-          Start a network at a cancellation saddle — pole and zero sitting
-          on top of each other — and run gradient descent. For a real target
-          pole, the zero departs along a straight line on the real axis: the
-          same one-dimensional escape you see in a feedforward network. For
-          a complex target pole, the zero curves away — its direction
-          rotates as its distance grows. The curve isn't random. A single
-          equation governs it.
+          From near-zero initialisation ($W, b, c \approx 0$), the
+          learning dynamics visits a sequence of configurations
+          $H_1 \to H_2 \to \cdots \to H_n$, where $H_k$ is
+          approximately the globally-optimal $k$-pole rational
+          approximation to the target under the data distribution.
+          Two features distinguish this from simply activating target
+          modes one by one:
+        </p>
+
+        <ul>
+          <li>
+            The pole locations in $H_k$ are <strong>globally
+            optimised</strong> for a $k$-pole fit. They are not subsets
+            of the target's poles — the best 2-pole approximation to a
+            4-pole target places its poles at locations that may differ
+            from any of the four target poles.
+          </li>
+          <li>
+            As $k$ increases, <strong>all</strong> pole locations
+            readjust to accommodate the new degree of freedom. Each
+            step is a global reconfiguration, not a local addition.
+          </li>
+        </ul>
+
+        <h3>Escape rates from the Hessian</h3>
+
+        <p>
+          Which mode escapes next is determined by the curvature of
+          the loss at the current saddle. In
+          <a href="#sec-saddle">§ 5</a> we saw that the loss in the
+          $(\alpha_k, \beta_k)$ subspace near a cancellation saddle is
+        </p>
+
+        $$\mathcal{L}(\alpha_k,\beta_k)
+          = \mathcal{L}_\perp
+          - \Re\bigl[\alpha_k \beta_k \bar{J}_k\bigr]
+          + \tfrac{1}{2}|\alpha_k\beta_k|^2\, S_k^{(x)}
+          + O(|\alpha_k\beta_k|^3),$$
+
+        <p>
+          where $\mathcal{L}_\perp$ collects terms independent of
+          mode $k$. Two data-dependent quantities appear:
+        </p>
+
+        <ul>
+          <li>
+            The <em>mode-$k$ input energy</em>
+            $S_k^{(x)} = \mathbb{E}\!\left[\frac{1}{T}
+            \sum_t |\phi_k(t)|^2\right]$, measuring how strongly the
+            input excites mode $k$'s frequency. Here
+            $\phi_k(t) = \sum_{s} p_k^{s} x_{t-s}$ is the input
+            filtered through mode $k$'s exponential kernel.
+          </li>
+          <li>
+            The <em>cross-energy</em>
+            $J_k = \mathbb{E}\!\left[\frac{1}{T}\sum_t
+            \overline{\phi_k(t)}\,\Delta_t\right]$, the correlation
+            between mode $k$'s filtered input and the residual error
+            $\Delta_t = y_t - \hat{y}_t$ at the saddle. This is
+            what the gradient "sees" — how much the unmatched target
+            signal projects onto mode $k$'s frequency.
+          </li>
+        </ul>
+
+        <p>
+          The Hessian eigenvalues at $\alpha_k = 0$ are
+        </p>
+
+        $$\mu_\pm = \frac{|\beta_k^{(0)}|^2 S_k^{(x)}}{2}
+          \pm \sqrt{\frac{|\beta_k^{(0)}|^4 (S_k^{(x)})^2}{4}
+          + |J_k|^2},$$
+
+        <p>
+          which always has $\mu_+ &gt; 0$ and $\mu_- &lt; 0$ whenever
+          the cross-energy $J_k \neq 0$ — confirming the saddle. The
+          escape rate is controlled by $|\mu_-|$, and when we track
+          the pole-zero separation variable
+          $\varepsilon = p_k - q_m$ near the saddle, it obeys
+        </p>
+
+        $$\frac{d\varepsilon}{d\tau} = \lambda\,\varepsilon
+          + O(|\varepsilon|^2), \qquad
+          |\lambda| \propto E_k^{\mathrm{eff}}.$$
+
+        <p>
+          The mode with the largest $|\lambda|$ — the largest effective
+          spectral energy — escapes fastest. Ordering the modes by
+          $E_k^{\mathrm{eff}}$ gives
+        </p>
+
+        $$E_1^{\mathrm{eff}} > E_2^{\mathrm{eff}}
+          > \cdots > E_n^{\mathrm{eff}}
+          \quad\Longrightarrow\quad
+          T_0 &lt; T_1 &lt; \cdots &lt; T_{n-1},$$
+
+        <p>
+          where $T_\rho$ is the dwell time at the rank-$\rho$
+          saddle. The dwell time itself is
+          $T_\rho = |\lambda_{\rho+1}|^{-1}
+          \log(\varepsilon_{\mathrm{exit}}/|\varepsilon_0|)$, which
+          scales as $\log(1/\sigma_0)$ — smaller initialisation gives
+          sharper plateaux — but the <em>sequence</em> of
+          configurations visited is a property of the target and data,
+          independent of $\sigma_0$.
+        </p>
+
+        <h3>The effective spectral energy</h3>
+
+        <p>
+          What is $E_k^{\mathrm{eff}}$ concretely? For the
+          squared-error loss, it decomposes into three interpretable
+          factors. Start from the mode-$k$ input energy. When the
+          inputs $\{x_t\}$ are white noise,
+          $\mathbb{E}[x_s x_{s'}] = \delta_{ss'}$, the calculation
+          is direct:
+        </p>
+
+        $$S_k^{(x)} = \mathbb{E}\!\left[\frac{1}{T}
+          \sum_t |\phi_k(t)|^2\right]
+          = \frac{1}{T}\sum_{t=1}^{T}\sum_{s=0}^{t-1} |p_k|^{2s}
+          \;\xrightarrow{T\to\infty}\;
+          \frac{1}{1 - |p_k|^2}.$$
+
+        <p>
+          For non-white inputs with power spectral density $S_x(\omega)$,
+          the mode-$k$ input energy generalises to
+          $S_k^{(x)} \approx S_x(\arg p_k) / (1 - |p_k|^2)$: the
+          input's spectral density evaluated at mode $k$'s frequency,
+          divided by the geometric-series persistence factor. The
+          effective spectral energy — defined as
+          $E_k^{\mathrm{eff}} = |J_k|^2 / S_k^{(x)}$ —
+          then becomes
+        </p>
+
+        $$\boxed{E_k^{\mathrm{eff}} \;\approx\; |r_k^{\ast}|^2
+          \cdot \frac{S_x(\arg\,p_k^{\ast})}{1 - |p_k^{\ast}|^2}.}$$
+
+        <p>
+          Three factors multiply, each with a clear meaning:
+        </p>
+
+        <ul>
+          <li>
+            $|r_k^{\ast}|^2$ — <strong>target content</strong>: how
+            much of the target's impulse response lives at mode $k$'s
+            frequency. A mode with a small residue in the target
+            contributes little to the error regardless of everything
+            else.
+          </li>
+          <li>
+            $S_x(\arg p_k^{\ast})$ — <strong>input drive</strong>:
+            how much energy the input delivers at that frequency.
+            The input acts as a frequency-selective filter on what
+            can be learned.
+          </li>
+          <li>
+            $1/(1 - |p_k^{\ast}|^2)$ — <strong>persistence</strong>:
+            how many time steps the mode rings for. Slowly-decaying
+            modes accumulate more squared error across the sum.
+          </li>
+        </ul>
+
+        <h3>Data-dependent gating</h3>
+
+        <p>
+          The input-drive factor $S_x(\arg p_k^*)$ is the key
+          prediction that distinguishes recurrent from feedforward
+          learning. It can be <strong>zero</strong>. If the input
+          has no energy at mode $k$'s frequency, then the filtered
+          signal $\phi_k(t) = \sum_s p_k^s\, x_{t-s}$ is
+          identically zero for all $t$ — the mode is never excited,
+          the cross-energy $J_k$ vanishes, and the gradient in the
+          $(\alpha_k, \beta_k)$ directions is exactly zero. The
+          mode is not just slow to learn; it is <em>invisible</em>
+          to gradient descent.
         </p>
 
         <p>
-          Near the saddle, the separation $\varepsilon = p - q$ (pole minus
-          zero) obeys
+          This is absent from the feedforward theory. In Saxe's deep
+          linear networks, the input covariance rescales the importance
+          of each singular value but cannot gate it to zero — every
+          mode eventually escapes its saddle. In the recurrent setting,
+          the input distribution acts as a hard gate on learnability,
+          determining not just the ordering but <em>which modes are
+          accessible at all</em>. A lowpass input cannot teach the
+          network a high-frequency oscillation, no matter how long
+          training runs.
         </p>
 
-        $$\frac{d\varepsilon}{d\tau} \;=\; \lambda\,\bar{\varepsilon}$$
+        <h3>The persistence factor</h3>
 
         <p>
-          where $\lambda \in \mathbb{C}$ is a data-dependent coefficient and
-          the bar denotes complex
-          conjugate.<d-footnote>
-          <strong>Why the conjugate?</strong> Each mode's output
-          amplitude is a product of two complex parameters:
-          $r_k = \alpha_k \cdot \beta_k$
-          (input coupling times output coupling). At a cancellation
-          saddle, one factor — say $\alpha_k$ — is near zero. Gradient
-          descent on $\alpha_k$ pushes it in a direction that depends
-          on $\bar\beta_k$, the conjugate of its partner: differentiating
-          a real-valued loss through a bilinear product pairs each factor
-          with the conjugate of the other. When you translate from the
-          $(\alpha_k,\beta_k)$ dynamics to the separation variable
-          $\varepsilon \propto \alpha_k\beta_k$, that conjugation carries
-          over — the leading flow term involves $\bar\varepsilon$, not
-          $\varepsilon$. (The same product structure is what creates the
-          saddle in the first place: the surface $\alpha\beta = 0$ is a
-          saddle at the origin of $\mathbb{C}^2$.)
-          <br><br>
-          <strong>Decoupled form.</strong> Write
-          $\lambda = |\lambda|e^{i\varphi}$ and substitute
-          $\varepsilon = e^{i\varphi/2}(\varepsilon_1 +
-          i\varepsilon_2)$. Then $\bar\varepsilon =
-          e^{-i\varphi/2}(\varepsilon_1 - i\varepsilon_2)$, so
-          $\lambda\bar\varepsilon = |\lambda|(\varepsilon_1 -
-          i\varepsilon_2)$. Equating real and imaginary parts:
-          $\dot\varepsilon_1 = |\lambda|\varepsilon_1$ (exponential
-          growth) and $\dot\varepsilon_2 = -|\lambda|\varepsilon_2$
-          (exponential decay). The growing component points along
-          $e^{i\varphi/2}$; the decaying component is perpendicular.
-          The transient oscillation frequency
-          $\omega = |\lambda|\sin(\varphi/2)$ is the angular velocity
-          of the decaying transverse component projected onto the
-          output.</d-footnote>
-          Read $\lambda\bar\varepsilon$ geometrically. Conjugation
-          reflects $\varepsilon$ across the real axis: if $\varepsilon$
-          points at angle $\theta$, the reflection $\bar\varepsilon$ points
-          at $-\theta$. Multiplying by
-          $\lambda = |\lambda|\,e^{i\varphi}$ then scales by $|\lambda|$
-          and rotates by $\varphi$, landing at angle
-          $\varphi - \theta$. So the velocity of $\varepsilon$ points at
-          angle $\varphi - \theta$: <em>reflect, then rotate</em>.
+          The $1/(1 - |p|^2)$ factor favoring slowly-decaying modes
+          deserves scrutiny: is the network intrinsically biased toward
+          slow dynamics? No. The factor is an arithmetic consequence
+          of the loss function. The squared-error loss sums over all
+          time lags:
+        </p>
+
+        $$\mathcal{L} = \sum_{s=0}^{\infty} |g_s^* - g_s|^2.$$
+
+        <p>
+          A mode near the unit circle ($|p| \to 1$) contributes
+          $|r|^2 |p|^{2s}$ to each lag $s$, and the geometric series
+          sums to $|r|^2/(1 - |p|^2)$. Modes that ring longer simply
+          deposit more total energy into the sum — they contribute
+          a larger share of the squared error, so gradient descent
+          addresses them first. The bias is toward reducing the largest
+          error contributions, and persistence inflates those
+          contributions.
         </p>
 
         <p>
-          For the separation to grow without turning — velocity parallel to
-          $\varepsilon$ itself — we need $\varphi - \theta = \theta$, i.e.
-          $\theta = \varphi/2$. The direction $e^{i\varphi/2}$ is the unique
-          direction that maps to itself under reflect-then-rotate. Along it,
-          the separation grows purely radially at rate $|\lambda|$. Any other
-          initial direction gets a transverse kick that swings $\varepsilon$
-          toward $e^{i\varphi/2}$ as it grows — that swing is the curve you
-          see in the widget.
+          A loss function that discounted future lags — say,
+          $\mathcal{L} = \sum_s \gamma^s |g_s^* - g_s|^2$
+          with $\gamma &lt; 1$ — would replace
+          $1/(1 - |p|^2)$ with $1/(1 - \gamma|p|^2)$, diminishing
+          the persistence advantage. One that weighted only the first
+          $T$ lags would cap it at $T$. The ordering of modes is
+          always a joint property of the target, the data, and the
+          loss — never of the dynamics alone.
         </p>
 
         <p>
-          What determines $\varphi = \arg\lambda$? It is the phase of the
-          cross-correlation between the residual error — what the other modes
-          leave unexplained — and the watched mode's sensitivity to its pole
-          position. For a real target pole, this cross-correlation is real:
-          $\varphi = 0$, $e^{i \cdot 0} = 1$, and the zero departs along
-          the real axis. For a complex target pole, the other modes
-          leave a complex-valued residual, $\varphi$ rotates away from zero,
-          and the escape direction tilts off the real axis. The escape
-          direction is a fingerprint of the data distribution, readable from
-          the early training trajectory.
+          Below, the widget trains a network on a fixed 4-pole target.
+          The blue dashed curve is the <em>precomputed optimal $k$-pole
+          fit</em> — watch the learned frequency response (red) land on
+          it at each plateau. Switch the input type to see data-dependent
+          gating: modes at unexcited frequencies never activate.
+        </p>
+
+        <div id="widget-progressive-approx" class="widget-slot widget-l-page"></div>
+      </section>
+
+      <section id="sec-collision" class="article-section">
+        <p class="section-number">§ 8</p>
+        <h2>Real before complex</h2>
+
+        <p class="lede">
+          We've watched eigenvalues of $W$ drift during training. Look
+          more closely at <em>where</em> they start: all eigenvalues
+          begin on or near the real axis, and complex-conjugate pairs
+          appear only later. This isn't accidental — it's forced by
+          the structure of the gradient.
+        </p>
+
+        <h3>The rank-1 gradient near the saddle</h3>
+
+        <p>
+          The BPTT gradient of the loss with respect to $W$ is an
+          outer-product sum:
+        </p>
+
+        $$\frac{\partial \mathcal{L}}{\partial W}
+          = \sum_t \lambda_{t+1}\, h_t^\top,$$
+
+        <p>
+          where $h_t = W h_{t-1} + b\, x_t$ is the hidden state and
+          $\lambda_t$ is the adjoint (backpropagated error signal),
+          satisfying $\lambda_t = W^\top \lambda_{t+1}
+          + c\,\frac{\partial \ell}{\partial \hat{y}_t}$. Near the
+          all-zero saddle ($W \approx 0$, $b$ and $c$ small), both
+          sequences collapse:
+        </p>
+
+        <ul>
+          <li>
+            The hidden state reduces to
+            $h_t \approx b\, x_t$ — only the direct input
+            survives, since $W h_{t-1} \approx 0$.
+          </li>
+          <li>
+            The adjoint reduces to
+            $\lambda_t \approx c\,\frac{\partial \ell}{\partial \hat{y}_t}$
+            — only the direct readout error survives, since
+            $W^\top \lambda_{t+1} \approx 0$.
+          </li>
+        </ul>
+
+        <p>
+          The gradient therefore becomes approximately
+        </p>
+
+        $$\frac{\partial \mathcal{L}}{\partial W}
+          \;\approx\;
+          \underbrace{\left(\sum_t
+          \frac{\partial \ell}{\partial \hat{y}_t}\, x_t\right)}_{\text{scalar-like}}
+          \; c\, b^\top.$$
+
+        <p>
+          This is a <strong>rank-1</strong> matrix — the outer product
+          $c\, b^\top$, scaled by the input-error correlation. A rank-1
+          update to a real matrix can only shift its eigenvalues along
+          the real axis. To see why, consider a $2 \times 2$ case: if
+          $W$ has eigenvalues $\lambda_1, \lambda_2 \in \mathbb{R}$,
+          then after a rank-1 perturbation
+          $W \mapsto W + \eta\, u v^\top$, the new eigenvalues are
+          roots of a real quadratic whose discriminant
+          $\Delta = (\operatorname{tr} W')^2 - 4\det W'$ remains
+          non-negative as long as the perturbation is small relative
+          to the eigenvalue gap. The eigenvalues slide along
+          $\mathbb{R}$ but don't leave it.
+        </p>
+
+        <h3>Eigenvalue collision</h3>
+
+        <p>
+          Complex eigenvalues can only appear when two real eigenvalues
+          <em>collide</em> — when $\lambda_1 = \lambda_2$ and the
+          discriminant $\Delta = 0$. At this degenerate point, an
+          infinitesimal further perturbation (now no longer constrained
+          to rank-1, since the network has grown away from the saddle)
+          can push $\Delta$ negative, and the eigenvalues bifurcate
+          into a complex-conjugate pair:
+        </p>
+
+        $$\lambda_{1,2} = \frac{\operatorname{tr} W'}{2}
+          \pm \frac{\sqrt{\Delta}}{2}
+          \quad\xrightarrow{\Delta &lt; 0}\quad
+          a \pm b\,i.$$
+
+        <p>
+          This is a topological necessity, not a dynamical accident.
+          The eigenvalues of a <em>real</em> matrix are roots of a
+          real characteristic polynomial, so they are either real or
+          come in conjugate pairs. A continuous deformation of
+          parameters cannot turn a real eigenvalue into a lone complex
+          one — it must pass through the <em>discriminant locus</em>
+          $\Sigma = \{W : \Delta(W) = 0\}$, where two eigenvalues
+          meet.
         </p>
 
         <p>
-          Below, the widget overlays the predicted escape direction (dashed)
-          on actual gradient-descent trajectories (solid). Both $|\lambda|$
-          and $\arg\lambda$ are measured from the network's own early
-          trajectory — the messy real run landing on the clean prediction.
-          The right panel shows the transient wobble at frequency
-          $|\lambda|\sin(\varphi/2)$: the decaying transverse component of
-          the separation, visible as an overshoot in the mode's output.
-          Dial the target pole from the real axis into the complex plane,
-          press play, and watch the line become a curve.
+          The collision happens not at the target pole locations, but
+          at whatever real-axis position is optimal for the current
+          reduced-order model. Two real eigenvalues, both drawn toward
+          a region of the spectrum where the target has a complex pair,
+          converge and bifurcate once the gradient has accumulated
+          enough off-diagonal structure to break the rank-1 alignment.
         </p>
 
-        <div id="widget-spiral-separation" class="widget-slot widget-l-middle"></div>
+        <h3>Why real structure comes first</h3>
+
+        <p>
+          Putting this together: the earliest weight updates are
+          rank-1 and can only produce real eigenvalue motion.
+          Complex pairs require (i) two eigenvalues to have converged
+          to the same real value, and (ii) the gradient to have
+          developed rank-2 structure — both of which require time.
+          Real modes activate first simply because real eigenvalue
+          motion is the only kind available to a rank-1 perturbation
+          of a near-zero real matrix.
+        </p>
+
+        <p>
+          In Saxe's feedforward networks, this question never arises:
+          singular values are always real and non-negative. In the
+          recurrent setting, eigenvalues <em>can</em> become complex
+          — but only through this collision mechanism. Real dynamical
+          structure (exponential decay, monotone impulse responses)
+          precedes oscillatory structure (damped sinusoids, resonant
+          peaks) as a <em>geometric</em> consequence of how gradient
+          descent builds up the weight matrix.
+        </p>
+
+        <p>
+          Below, a 3-dimensional network trains on a target that
+          requires one complex-conjugate pair. Watch two real
+          eigenvalues slide toward each other on the real axis,
+          collide, and split off vertically into conjugate partners.
+          The right panels show $\operatorname{Re}(\lambda)$
+          converging and $\operatorname{Im}(\lambda)$ branching at
+          the collision moment.
+        </p>
+
+        <div id="widget-eigenvalue-collision" class="widget-slot widget-l-middle"></div>
       </section>
 
       <section id="sec-references" class="article-section">
