@@ -76,11 +76,18 @@
           </p>
 
         <p>
-           We can learn exactly what a network thinks is "simple"
-          by making precise statements about what is learned first.
-          Since we never learn for infinite intes,
-          these dynamical learning trajectories dictate the inductive bias of trained networks. 
+          The learning dynamics of neural networks offer a wonderful lens to understand what
+          functions neural networks are actually learning.
+          Gradient descent
+          follows a trajectory through parameter space, slowly moving from 
+          a random initialization towards a solution.
+          At some finite time we truncate this trajectory, and end up with a network.
+          We can think of this trajectory as moving from "simple" functions to "complex" ones.
         </p>
+        <p> 
+          What "simple" really means depends on the architecture and the data. 
+          In some cases, we can describe very precisely what the stages of learning are,
+          and thus what definition of "simple" the network is biased toward.
         <p>
           For example, if you train a deep linear network with a small initialization on a structured target, the loss
           does not glide smoothly to zero. It drops in <em>steps</em>.<sup class="cite"><a href="#ref-saxe2014">1</a></sup>
@@ -397,10 +404,10 @@
         <h2>The staircase, decoded</h2>
 
         <p>
-          Train a small recurrent network on a multi-frequency target, and
-          the loss descends in steps. Each step is one pole–zero pair
+          We're now prepared to actually look at the dynamics of training our recurrent linear 
+          network. Play around for this playground for a while. Notice especially how the 
+          step-like learning behavior manifests. Each step is one pole–zero pair
           separating in the complex plane — one mode escaping its saddle.
-          The staircase is the signature of sequential mode activation.
         </p>
 
         <div id="widget-decoded-staircase" class="widget-slot widget-l-page"></div>
