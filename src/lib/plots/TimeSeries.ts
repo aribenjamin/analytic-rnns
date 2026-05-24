@@ -13,11 +13,16 @@ export interface TimeSeriesTrace {
   style?: 'line' | 'stem';
   width?: number;
   dasharray?: string;
+  /** Optional per-trace x coordinates (same length as values). If omitted,
+   *  values are indexed 0..N-1. Required for log-x when values include a 0. */
+  xValues?: number[];
 }
 
 export interface TimeSeriesOptions {
   width?: number;
   height?: number;
+  xMin?: number;
+  xMax?: number;
   yMin?: number;
   yMax?: number;
   xLabel?: string;
@@ -29,6 +34,8 @@ export interface TimeSeriesOptions {
    *  of the default rotated-90° placement. Useful for short row titles. */
   yLabelHorizontal?: boolean;
   yLog?: boolean;
+  /** Logarithmic x axis. Requires all plotted x values to be > 0. */
+  xLog?: boolean;
   /** Suppress x-axis tick labels (useful for stacked rows that share an x). */
   hideXTicks?: boolean;
   /** Suppress y-axis tick labels (when the y units are obvious or symmetric). */
@@ -50,7 +57,7 @@ export class TimeSeries {
     bottom: 42,
     left: 64,
   };
-  private xScale!: d3.ScaleLinear<number, number>;
+  private xScale!: d3.ScaleContinuousNumeric<number, number>;
   private yScale!: d3.ScaleContinuousNumeric<number, number>;
   private root!: d3.Selection<SVGGElement, unknown, null, undefined>;
   private xAxisG!: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -81,7 +88,10 @@ export class TimeSeries {
       .attr('preserveAspectRatio', 'xMidYMid meet');
 
     const m = this.margin;
-    this.xScale = d3.scaleLinear().range([m.left, this.width - m.right]);
+    this.xScale = (this.opts.xLog
+      ? d3.scaleLog()
+      : d3.scaleLinear()
+    ).range([m.left, this.width - m.right]) as d3.ScaleContinuousNumeric<number, number>;
     this.yScale = (this.opts.yLog
       ? d3.scaleLog()
       : d3.scaleLinear()
@@ -137,8 +147,35 @@ export class TimeSeries {
 
   update(traces: TimeSeriesTrace[]): void {
     if (traces.length === 0) return;
-    const T = Math.max(...traces.map((t) => t.values.length));
-    this.xScale.domain([0, Math.max(1, T - 1)]);
+    // x-domain: from xMin/xMax overrides, or scan all trace xValues / indices.
+    let xMin = this.opts.xMin ?? Infinity;
+    let xMax = this.opts.xMax ?? -Infinity;
+    if (this.opts.xMin === undefined || this.opts.xMax === undefined) {
+      for (const tr of traces) {
+        const xs = tr.xValues;
+        if (xs) {
+          for (const v of xs) {
+            if (!Number.isFinite(v)) continue;
+            if (this.opts.xLog && v <= 0) continue;
+            if (this.opts.xMin === undefined && v < xMin) xMin = v;
+            if (this.opts.xMax === undefined && v > xMax) xMax = v;
+          }
+        } else {
+          const N = tr.values.length;
+          if (this.opts.xMin === undefined) {
+            xMin = Math.min(xMin, this.opts.xLog ? 1 : 0);
+          }
+          if (this.opts.xMax === undefined) {
+            xMax = Math.max(xMax, Math.max(1, N - 1));
+          }
+        }
+      }
+      if (!Number.isFinite(xMin)) xMin = this.opts.xLog ? 1 : 0;
+      if (!Number.isFinite(xMax)) xMax = 1;
+      if (xMin >= xMax) xMax = xMin + 1;
+    }
+    this.xScale.domain([xMin, xMax]);
+
     let yMin = this.opts.yMin ?? Infinity;
     let yMax = this.opts.yMax ?? -Infinity;
     if (this.opts.yMin === undefined || this.opts.yMax === undefined) {
@@ -164,9 +201,15 @@ export class TimeSeries {
     this.yScale.domain([yMin, yMax]);
 
     if (this.opts.hideXTicks) {
-      this.xAxisG.call(d3.axisBottom(this.xScale).ticks(5).tickFormat(() => ''));
+      this.xAxisG.call(
+        (d3.axisBottom(this.xScale) as any)
+          .ticks(5, this.opts.xLog ? '.1g' : undefined)
+          .tickFormat(() => ''),
+      );
     } else {
-      this.xAxisG.call(d3.axisBottom(this.xScale).ticks(5));
+      this.xAxisG.call(
+        (d3.axisBottom(this.xScale) as any).ticks(5, this.opts.xLog ? '.1g' : undefined),
+      );
     }
     if (this.opts.hideYTicks) {
       this.yAxisG.call(d3.axisLeft(this.yScale).ticks(0).tickSize(0));
@@ -176,11 +219,15 @@ export class TimeSeries {
       );
     }
 
-    const lineGen = d3
-      .line<number>()
-      .x((_, i) => this.xScale(i))
-      .y((d) => this.yScale(d))
-      .defined((d) => Number.isFinite(d));
+    const xAt = (trace: TimeSeriesTrace, i: number): number =>
+      trace.xValues ? trace.xValues[i] : i;
+    const isPlottable = (trace: TimeSeriesTrace, i: number, v: number): boolean => {
+      if (!Number.isFinite(v)) return false;
+      const x = xAt(trace, i);
+      if (!Number.isFinite(x)) return false;
+      if (this.opts.xLog && x <= 0) return false;
+      return true;
+    };
 
     const join = this.linesG
       .selectAll<SVGGElement, TimeSeriesTrace>('g.trace')
@@ -200,26 +247,32 @@ export class TimeSeries {
       if (d.style === 'stem') {
         path.attr('d', '');
         const baseY = this.yScale(Math.max(this.yScale.domain()[0], 0));
+        const stemData = d.values.map((v, idx) => ({ v, idx })).filter((p) => isPlottable(d, p.idx, p.v));
         stems
-          .selectAll<SVGLineElement, number>('line')
-          .data(d.values)
+          .selectAll<SVGLineElement, { v: number; idx: number }>('line')
+          .data(stemData)
           .join('line')
-          .attr('x1', (_, idx) => this.xScale(idx))
-          .attr('x2', (_, idx) => this.xScale(idx))
+          .attr('x1', (p) => this.xScale(xAt(d, p.idx)))
+          .attr('x2', (p) => this.xScale(xAt(d, p.idx)))
           .attr('y1', baseY)
-          .attr('y2', (v) => this.yScale(v))
+          .attr('y2', (p) => this.yScale(p.v))
           .attr('stroke', color)
           .attr('stroke-width', 1.5);
         stems
-          .selectAll<SVGCircleElement, number>('circle')
-          .data(d.values)
+          .selectAll<SVGCircleElement, { v: number; idx: number }>('circle')
+          .data(stemData)
           .join('circle')
-          .attr('cx', (_, idx) => this.xScale(idx))
-          .attr('cy', (v) => this.yScale(v))
+          .attr('cx', (p) => this.xScale(xAt(d, p.idx)))
+          .attr('cy', (p) => this.yScale(p.v))
           .attr('r', 2.5)
           .attr('fill', color);
       } else {
         stems.selectAll('*').remove();
+        const lineGen = d3
+          .line<number>()
+          .x((_, idx) => this.xScale(xAt(d, idx)))
+          .y((v) => this.yScale(v))
+          .defined((v, idx) => isPlottable(d, idx, v));
         path
           .attr('d', lineGen(d.values) ?? '')
           .attr('stroke', color)

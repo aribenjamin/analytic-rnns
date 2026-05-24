@@ -59,8 +59,9 @@
         <li><a href="#sec-residue" data-toc-target="sec-residue"><span class="toc-num">4</span>The residue is a volume knob</a></li>
         <li><a href="#sec-saddle" data-toc-target="sec-saddle"><span class="toc-num">5</span>Cancellation is a saddle</a></li>
         <li><a href="#sec-staircase" data-toc-target="sec-staircase"><span class="toc-num">6</span>The staircase, decoded</a></li>
-        <li><a href="#sec-bias" data-toc-target="sec-bias"><span class="toc-num">7</span>The bias toward simplicity</a></li>
-        <li><a href="#sec-collision" data-toc-target="sec-collision"><span class="toc-num">8</span>Real before complex</a></li>
+        <li><a href="#sec-bestfit" data-toc-target="sec-bestfit"><span class="toc-num">7</span>Plateaus are best-fit degree-k models</a></li>
+        <li><a href="#sec-phenomena" data-toc-target="sec-phenomena"><span class="toc-num">8</span>Five more things to know</a></li>
+        <li><a href="#sec-leaves-out" data-toc-target="sec-leaves-out"><span class="toc-num">9</span>What this leaves out</a></li>
         <li><a href="#sec-references" data-toc-target="sec-references"><span class="toc-num">·</span>References</a></li>
       </ol>
     </aside>
@@ -407,408 +408,341 @@
 
       </section>
 
-      <section id="sec-bias" class="article-section">
+      <section id="sec-bestfit" class="article-section">
         <p class="section-number">§ 7</p>
-        <h2>The bias toward simplicity</h2>
+        <h2>Plateaus are best-fit degree-k models</h2>
 
         <p class="lede">
-          The <a href="#sec-staircase">staircase</a> shows modes
-          activating one by one — but <em>which</em> modes, in what
-          order, and what does each plateau represent? To answer this
-          we need to understand the escape rate at each saddle.
+          After <a href="#sec-saddle">§ 5</a> we know each plateau is
+          a saddle where some residues vanish; after
+          <a href="#sec-staircase">§ 6</a> we've watched the
+          staircase fall step by step. The natural next question:
+          <em>which</em> residues are zero on plateau $k$, and where
+          do the active poles sit? It turns out the answer is sharp,
+          and — like the singular-value story for feedforward
+          networks — it has a closed form.
         </p>
 
-        <h3>The feedforward analogy</h3>
+        <h3>The best $k$-pole rational approximation</h3>
 
         <p>
-          In Saxe et al.'s deep linear networks, small-scale
-          initialisation biases learning toward <em>low-rank</em>
-          linear maps. The network first learns a rank-1 approximation
-          to the target, then rank-2, and so on — each step adding one
-          singular value's worth of complexity. Here the story is the
-          same, with <em>dynamical order</em> replacing <em>matrix
-          rank</em>: the network builds a low-order rational transfer
-          function that captures as much of the target as possible
-          with as few poles as possible.
+          Set the network aside for a moment. Suppose we are simply
+          handed the target impulse response $g_t^{\ast}$ and asked:
+          <em>what is the best degree-$k$ rational approximation to
+          it?</em> Concretely, choose <strong>both</strong> $k$ poles
+          $\{p_1, \ldots, p_k\}$ and $k$ residues
+          $\{r_1, \ldots, r_k\}$ to minimise
         </p>
 
-        <p>
-          From near-zero initialisation ($W, b, c \approx 0$), the
-          learning dynamics visits a sequence of configurations
-          $H_1 \to H_2 \to \cdots \to H_n$, where $H_k$ is
-          approximately the globally-optimal $k$-pole rational
-          approximation to the target under the data distribution.
-          Two features distinguish this from simply activating target
-          modes one by one:
-        </p>
-
-        <ul>
-          <li>
-            The pole locations in $H_k$ are <strong>globally
-            optimised</strong> for a $k$-pole fit. They are not subsets
-            of the target's poles — the best 2-pole approximation to a
-            4-pole target places its poles at locations that may differ
-            from any of the four target poles.
-          </li>
-          <li>
-            As $k$ increases, <strong>all</strong> pole locations
-            readjust to accommodate the new degree of freedom. Each
-            step is a global reconfiguration, not a local addition.
-          </li>
-        </ul>
-
-        <h3>Escape rates from the Hessian</h3>
+        <div class="math-block">
+          $$\mathcal{L}(p, r) \;=\;
+            \tfrac{1}{2}\sum_{t \ge 0}\Bigl(
+              \textstyle\sum_j r_j\,p_j^{\,t} \;-\; g_t^{\ast}
+            \Bigr)^2.$$
+        </div>
 
         <p>
-          Which mode escapes next is determined by the curvature of
-          the loss at the current saddle. In
-          <a href="#sec-saddle">§ 5</a> we saw that the loss in the
-          $(\alpha_k, \beta_k)$ subspace near a cancellation saddle is
-        </p>
-
-        $$\mathcal{L}(\alpha_k,\beta_k)
-          = \mathcal{L}_\perp
-          - \Re\bigl[\alpha_k \beta_k \bar{J}_k\bigr]
-          + \tfrac{1}{2}|\alpha_k\beta_k|^2\, S_k^{(x)}
-          + O(|\alpha_k\beta_k|^3),$$
-
-        <p>
-          where $\mathcal{L}_\perp$ collects terms independent of
-          mode $k$. Two data-dependent quantities appear:
-        </p>
-
-        <ul>
-          <li>
-            The <em>mode-$k$ input energy</em>
-            $S_k^{(x)} = \mathbb{E}\!\left[\frac{1}{T}
-            \sum_t |\phi_k(t)|^2\right]$, measuring how strongly the
-            input excites mode $k$'s frequency. Here
-            $\phi_k(t) = \sum_{s} p_k^{s} x_{t-s}$ is the input
-            filtered through mode $k$'s exponential kernel.
-          </li>
-          <li>
-            The <em>cross-energy</em>
-            $J_k = \mathbb{E}\!\left[\frac{1}{T}\sum_t
-            \overline{\phi_k(t)}\,\Delta_t\right]$, the correlation
-            between mode $k$'s filtered input and the residual error
-            $\Delta_t = y_t - \hat{y}_t$ at the saddle. This is
-            what the gradient "sees" — how much the unmatched target
-            signal projects onto mode $k$'s frequency.
-          </li>
-        </ul>
-
-        <p>
-          The Hessian eigenvalues at $\alpha_k = 0$ are
-        </p>
-
-        $$\mu_\pm = \frac{|\beta_k^{(0)}|^2 S_k^{(x)}}{2}
-          \pm \sqrt{\frac{|\beta_k^{(0)}|^4 (S_k^{(x)})^2}{4}
-          + |J_k|^2},$$
-
-        <p>
-          which always has $\mu_+ &gt; 0$ and $\mu_- &lt; 0$ whenever
-          the cross-energy $J_k \neq 0$ — confirming the saddle. The
-          escape rate is controlled by $|\mu_-|$, and when we track
-          the pole-zero separation variable
-          $\varepsilon = p_k - q_m$ near the saddle, it obeys
-        </p>
-
-        $$\frac{d\varepsilon}{d\tau} = \lambda\,\varepsilon
-          + O(|\varepsilon|^2), \qquad
-          |\lambda| \propto E_k^{\mathrm{eff}}.$$
-
-        <p>
-          The mode with the largest $|\lambda|$ — the largest effective
-          spectral energy — escapes fastest. Ordering the modes by
-          $E_k^{\mathrm{eff}}$ gives
-        </p>
-
-        $$E_1^{\mathrm{eff}} > E_2^{\mathrm{eff}}
-          > \cdots > E_n^{\mathrm{eff}}
-          \quad\Longrightarrow\quad
-          T_0 &lt; T_1 &lt; \cdots &lt; T_{n-1},$$
-
-        <p>
-          where $T_\rho$ is the dwell time at the rank-$\rho$
-          saddle. The dwell time itself is
-          $T_\rho = |\lambda_{\rho+1}|^{-1}
-          \log(\varepsilon_{\mathrm{exit}}/|\varepsilon_0|)$, which
-          scales as $\log(1/\sigma_0)$ — smaller initialisation gives
-          sharper plateaux — but the <em>sequence</em> of
-          configurations visited is a property of the target and data,
-          independent of $\sigma_0$.
-        </p>
-
-        <h3>The effective spectral energy</h3>
-
-        <p>
-          What is $E_k^{\mathrm{eff}}$ concretely? For the
-          squared-error loss, it decomposes into three interpretable
-          factors. Start from the mode-$k$ input energy. When the
-          inputs $\{x_t\}$ are white noise,
-          $\mathbb{E}[x_s x_{s'}] = \delta_{ss'}$, the calculation
-          is direct:
-        </p>
-
-        $$S_k^{(x)} = \mathbb{E}\!\left[\frac{1}{T}
-          \sum_t |\phi_k(t)|^2\right]
-          = \frac{1}{T}\sum_{t=1}^{T}\sum_{s=0}^{t-1} |p_k|^{2s}
-          \;\xrightarrow{T\to\infty}\;
-          \frac{1}{1 - |p_k|^2}.$$
-
-        <p>
-          For non-white inputs with power spectral density $S_x(\omega)$,
-          the mode-$k$ input energy generalises to
-          $S_k^{(x)} \approx S_x(\arg p_k) / (1 - |p_k|^2)$: the
-          input's spectral density evaluated at mode $k$'s frequency,
-          divided by the geometric-series persistence factor. The
-          effective spectral energy — defined as
-          $E_k^{\mathrm{eff}} = |J_k|^2 / S_k^{(x)}$ —
-          then becomes
-        </p>
-
-        $$\boxed{E_k^{\mathrm{eff}} \;\approx\; |r_k^{\ast}|^2
-          \cdot \frac{S_x(\arg\,p_k^{\ast})}{1 - |p_k^{\ast}|^2}.}$$
-
-        <p>
-          Three factors multiply, each with a clear meaning:
-        </p>
-
-        <ul>
-          <li>
-            $|r_k^{\ast}|^2$ — <strong>target content</strong>: how
-            much of the target's impulse response lives at mode $k$'s
-            frequency. A mode with a small residue in the target
-            contributes little to the error regardless of everything
-            else.
-          </li>
-          <li>
-            $S_x(\arg p_k^{\ast})$ — <strong>input drive</strong>:
-            how much energy the input delivers at that frequency.
-            The input acts as a frequency-selective filter on what
-            can be learned.
-          </li>
-          <li>
-            $1/(1 - |p_k^{\ast}|^2)$ — <strong>persistence</strong>:
-            how many time steps the mode rings for. Slowly-decaying
-            modes accumulate more squared error across the sum.
-          </li>
-        </ul>
-
-        <h3>Data-dependent gating</h3>
-
-        <p>
-          The input-drive factor $S_x(\arg p_k^*)$ is the key
-          prediction that distinguishes recurrent from feedforward
-          learning. It can be <strong>zero</strong>. If the input
-          has no energy at mode $k$'s frequency, then the filtered
-          signal $\phi_k(t) = \sum_s p_k^s\, x_{t-s}$ is
-          identically zero for all $t$ — the mode is never excited,
-          the cross-energy $J_k$ vanishes, and the gradient in the
-          $(\alpha_k, \beta_k)$ directions is exactly zero. The
-          mode is not just slow to learn; it is <em>invisible</em>
-          to gradient descent.
+          This is the question the §6 staircase widget is implicitly
+          answering at each plateau — the network is, at any moment,
+          some $k$-pole rational function trying to fit the target.
+          What's the <em>best</em> it could be at each $k$?
         </p>
 
         <p>
-          This is absent from the feedforward theory. In Saxe's deep
-          linear networks, the input covariance rescales the importance
-          of each singular value but cannot gate it to zero — every
-          mode eventually escapes its saddle. In the recurrent setting,
-          the input distribution acts as a hard gate on learnability,
-          determining not just the ordering but <em>which modes are
-          accessible at all</em>. A lowpass input cannot teach the
-          network a high-frequency oscillation, no matter how long
-          training runs.
+          The problem is non-convex in the poles. But the residues
+          are easy: at any fixed pole configuration $p$, the loss is
+          quadratic in $r$, so the optimal residues are linear
+          least-squares — the unique solution of the normal equations
+          $G\,r = d$ with
         </p>
 
-        <h3>The persistence factor</h3>
+        <div class="math-block">
+          $$G_{jl} \;=\; \frac{1}{1 - p_j\,p_l},
+            \qquad d_l \;=\; \sum_j \frac{r_j^{\ast}}{1 - p_j^{\ast}\,p_l}.$$
+        </div>
 
         <p>
-          The $1/(1 - |p|^2)$ factor favoring slowly-decaying modes
-          deserves scrutiny: is the network intrinsically biased toward
-          slow dynamics? No. The factor is an arithmetic consequence
-          of the loss function. The squared-error loss sums over all
-          time lags:
+          Plugging those optimal residues back in profiles them out
+          and leaves a closed-form objective in the poles alone — the
+          <strong>Gram identity</strong>:
         </p>
 
-        $$\mathcal{L} = \sum_{s=0}^{\infty} |g_s^* - g_s|^2.$$
+        <div class="math-block">
+          $$\mathcal{L}^{\ast}(p) \;\equiv\; \min_r \mathcal{L}(p, r)
+            \;=\; \tfrac{1}{2}\bigl(\|g^{\ast}\|^2 \;-\; d^\top G^{-1} d\bigr).$$
+        </div>
 
         <p>
-          A mode near the unit circle ($|p| \to 1$) contributes
-          $|r|^2 |p|^{2s}$ to each lag $s$, and the geometric series
-          sums to $|r|^2/(1 - |p|^2)$. Modes that ring longer simply
-          deposit more total energy into the sum — they contribute
-          a larger share of the squared error, so gradient descent
-          addresses them first. The bias is toward reducing the largest
-          error contributions, and persistence inflates those
-          contributions.
+          The best degree-$k$ rational approximation to $g^{\ast}$ is
+          then the <em>global minimum of $\mathcal{L}^{\ast}_k(p)$
+          over all real-pole configurations</em> (or complex with
+          conjugate symmetry). A finite optimisation over $k$ numbers
+          — easy to solve numerically, hard to write in closed form,
+          but very much a single well-defined object for each $k$.
         </p>
 
+        <h3>The plateau <em>is</em> that optimum</h3>
+
         <p>
-          A loss function that discounted future lags — say,
-          $\mathcal{L} = \sum_s \gamma^s |g_s^* - g_s|^2$
-          with $\gamma &lt; 1$ — would replace
-          $1/(1 - |p|^2)$ with $1/(1 - \gamma|p|^2)$, diminishing
-          the persistence advantage. One that weighted only the first
-          $T$ lags would cap it at $T$. The ordering of modes is
-          always a joint property of the target, the data, and the
-          loss — never of the dynamics alone.
+          The claim of this section: at the rank-$k$ plateau of
+          gradient descent, the student's $k$ active poles and their
+          residues together sit at this global minimum. The student
+          <em>is</em> the best $k$-pole rational approximation of the
+          target, not approximately and not in some restricted sense.
         </p>
 
         <p>
-          Below, the widget trains a network on a fixed 4-pole target.
-          The blue dashed curve is the <em>precomputed optimal $k$-pole
-          fit</em> — watch the learned frequency response (red) land on
-          it at each plateau. Switch the input type to see data-dependent
-          gating: modes at unexcited frequencies never activate.
+          Two reasons this is worth stressing. First, those optimal
+          pole locations are generically <strong>not at any subset of
+          the target's poles</strong>. For two real targets
+          $\{0.3,\, 0.9\}$ with equal residues, the best one-pole
+          approximation sits at $p \approx 0.84$ — between the two
+          targets, biased toward the slower one because slow modes
+          contribute more squared energy. For a complex target
+          $0.85\, e^{i\pi/5}$ approximated by a single real pole,
+          the optimum sits at $p \approx 0.40$, nowhere near the
+          target's real part of $0.69$. Each plateau represents a
+          compromise pole configuration optimised for the rank-$k$
+          budget.
         </p>
 
-        <div id="widget-progressive-approx" class="widget-slot widget-l-page"></div>
+        <p>
+          Second, the residues at the plateau are not anything
+          special either — they are just $r^{\ast}(p) = G^{-1} d$
+          evaluated at whatever the eigenvalues of $W$ currently are
+          (see the adiabatic bullet in <a href="#sec-phenomena">§ 8</a>).
+          So the joint minimum factors: the eigenvalues do the work
+          of finding the right $p$, the residues track along.
+        </p>
+
+        <h3>Old poles readjust when a new one activates</h3>
+
+        <p>
+          The rank-$k$ Gram optimum is not contained in the
+          rank-$(k+1)$ Gram optimum. When a new eigenvalue activates,
+          the already-active poles shift to their new optimal
+          positions. Each escape is a global reconfiguration, not a
+          local addition.
+        </p>
+
+        <p>
+          For three real targets $\{0.3,\, 0.6,\, 0.9\}$ with equal
+          residues, the closed-form optima are: $k = 1$ at
+          $p \approx 0.77$; $k = 2$ at $(0.44,\, 0.89)$; $k = 3$ at
+          the targets themselves. Moving from the $k = 2$ plateau to
+          the $k = 3$ plateau, the existing two poles must shift from
+          $(0.44,\, 0.89)$ to $(0.6,\, 0.9)$ while the third
+          eigenvalue activates at $0.3$.
+        </p>
+
+        <h3>The widget</h3>
+
+        <p>
+          Below, an $n = 3$ student trains on the three-real-pole
+          target above at small initialisation $\sigma_0 \approx
+          0.01$, driven by a unit impulse — so the training loss
+          $\tfrac{1}{2}\sum_t (g_t - g_t^{\ast})^2$ measures the
+          same impulse-response error the rational-fit problem
+          minimises.
+        </p>
+
+        <p>
+          Watch three things at once. The <strong>loss panel</strong>
+          (log–log) plateaus at the dotted reference heights — those
+          are $\min_p\mathcal{L}^{\ast}_k$, the precomputed
+          best-degree-$k$ losses for $k = 1, 2$ (the $k = 3$ optimum
+          is the target itself, off the bottom of the axis). A plateau
+          at $\min_p\mathcal{L}^{\ast}_k$ is direct evidence that the
+          student has become the best $k$-pole rational fit. The
+          <strong>Bode panel</strong> overlays the precomputed
+          optimal $k$-pole frequency response (blue dashed) on the
+          learned curve (red); they coincide whenever the network is
+          parked on a plateau. And in the <strong>z-plane</strong>,
+          faint stars mark the optimal pole positions for the current
+          $k$ — the live eigenvalues drift toward them, sit there,
+          then readjust as the next pole activates.
+        </p>
+
+        <div id="widget-k-pole-best-fit" class="widget-slot widget-l-page"></div>
+
+        <p>
+          The mechanism in one sentence: because $(b, c)$ are
+          dimensionally fast and the eigenvalues of $W$ are slow
+          (<a href="#sec-phenomena">§ 8</a>, bullet 1), the residues
+          continuously equilibrate to $r^{\ast}(p) = G^{-1}d$ for
+          whatever the current eigenvalues are, and the slow drift of
+          the eigenvalues is gradient descent on the closed-form
+          $\mathcal{L}^{\ast}(p)$ landscape — descending its
+          successive minima as more directions in $W$ activate.
+        </p>
       </section>
 
-      <section id="sec-collision" class="article-section">
+      <section id="sec-phenomena" class="article-section">
         <p class="section-number">§ 8</p>
-        <h2>Real before complex</h2>
+        <h2>Five more things to know</h2>
 
         <p class="lede">
-          We've watched eigenvalues of $W$ drift during training. Look
-          more closely at <em>where</em> they start: all eigenvalues
-          begin on or near the real axis, and complex-conjugate pairs
-          appear only later. This isn't accidental — it's forced by
-          the structure of the gradient.
+          A grab-bag of other phenomena that fall out of the
+          framework, each with a short pedagogical note. None gets
+          its own widget — they are easier to see in a few lines than
+          in a panel.
         </p>
 
-        <h3>The rank-1 gradient near the saddle</h3>
-
-        <p>
-          The BPTT gradient of the loss with respect to $W$ is an
-          outer-product sum:
-        </p>
-
-        $$\frac{\partial \mathcal{L}}{\partial W}
-          = \sum_t \lambda_{t+1}\, h_t^\top,$$
-
-        <p>
-          where $h_t = W h_{t-1} + b\, x_t$ is the hidden state and
-          $\lambda_t$ is the adjoint (backpropagated error signal),
-          satisfying $\lambda_t = W^\top \lambda_{t+1}
-          + c\,\frac{\partial \ell}{\partial \hat{y}_t}$. Near the
-          all-zero saddle ($W \approx 0$, $b$ and $c$ small), both
-          sequences collapse:
-        </p>
-
-        <ul>
+        <ol class="phenomena-list">
           <li>
-            The hidden state reduces to
-            $h_t \approx b\, x_t$ — only the direct input
-            survives, since $W h_{t-1} \approx 0$.
+            <p>
+              <strong>$b$ and $c$ learn faster than $W$, and the
+              residues track the optimum adiabatically.</strong>
+              The impulse response is $g_t = c^\top W^t b$, so at
+              random initialisation with all parameters at scale
+              $\sigma_0$, the gradient with respect to $(b, c)$ is
+              of order $\sigma_0$ while the gradient with respect to
+              $W$ is of order $\sigma_0^2$ — one extra factor of
+              $\sigma_0$ from the chain through $W$. After a
+              time-rescale $s = \sigma_0^2\,\tau$ the $(b, c)$
+              subspace is "fast" and equilibrates within each
+              plateau to the optimal residues for the current pole
+              positions; the slow drift lives in the eigenvalues of
+              $W$. Empirically (a numerical companion to this
+              article) the pooled log–log relationship between
+              residue-tracking error and pole velocity has slope
+              $1.01$ with correlation $0.99$ — the adiabatic picture
+              is sharp.
+            </p>
           </li>
+
           <li>
-            The adjoint reduces to
-            $\lambda_t \approx c\,\frac{\partial \ell}{\partial \hat{y}_t}$
-            — only the direct readout error survives, since
-            $W^\top \lambda_{t+1} \approx 0$.
+            <p>
+              <strong>Other saddles exist — the $b^\top c$ sign
+              flip.</strong> The all-zero saddle is the largest
+              critical point near initialisation, but not the only
+              one. Before any single mode activates, the very first
+              scalar quantity that grows is $b^\top c$ — the
+              $n = 1$-like residue when only one direction in the
+              network is doing anything. Half the time the random
+              initialisation gives it the wrong sign, and learning
+              must flip it. In pole-space this looks bizarre: the
+              single real eigenvalue of $W$ runs off the real axis
+              <em>through the origin</em>, out to $\pm \infty$, and
+              returns from the other side. The plateau structure is
+              the same, but the trajectory is a reminder that
+              "saddle-to-saddle" lives in $(W, b, c)$ space, not in
+              pole space, and the map between them has its own
+              topology.
+            </p>
           </li>
-        </ul>
 
-        <p>
-          The gradient therefore becomes approximately
+          <li>
+            <p>
+              <strong>The first eigenvalue is always real.</strong>
+              Even when the target wants a complex pair, the rank-1
+              plateau places both eigenvalues of $W$ on the real
+              axis. The reason is structural: near $W = 0$ the
+              gradient is approximately
+              $\partial \mathcal{L}/\partial W \approx \big(\sum_t
+              e_t\, x_t\big)\, c\, b^\top$ — a rank-1 real matrix.
+              A rank-1 real update can only move eigenvalues along
+              $\mathbb{R}$; complex eigenvalues require two real
+              eigenvalues to first <em>collide</em> on the real axis
+              and bifurcate, which can happen only once $W$ has
+              built up rank-$2$ structure. Real dynamical content
+              (exponential decay) precedes oscillatory content
+              (damped sinusoids) as a geometric consequence of how
+              gradient descent builds up the weight matrix from
+              zero.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Imaginary parts onset as
+              $\sqrt{\tau - \tau_{\rm coll}}$ at the collision.</strong>
+              When two real eigenvalues meet and bifurcate into a
+              complex-conjugate pair, the discriminant
+              $D = (\operatorname{tr} W)^2 - 4\det W$ of the
+              characteristic polynomial passes linearly through
+              zero. The imaginary part of the eigenvalues is
+              $\tfrac{1}{2}\sqrt{-D}$, so
+              $|\mathrm{Im}\,\lambda| \propto \sqrt{\tau - \tau_{\rm coll}}$
+              in a window after the collision. This is a generic
+              transcritical-bifurcation signature; numerically the
+              measured exponent across five seeds is
+              $0.529 \pm 0.013$ against a theoretical $0.5$.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Plateau dwell time is logarithmic in
+              $\sigma_0$.</strong> Near each saddle, the unstable
+              mode grows exponentially with a target-specific rate
+              $|J|$, starting at amplitude of order $\sigma_0$, so
+              the escape time is approximately
+              $\tau_{\rm esc} \approx \frac{1}{2|J|}
+              \log\!\bigl(1/\sigma_0^2\bigr) + \text{const}$.
+              Smaller initialisation stretches the plateaux but
+              leaves the <em>sequence</em> of visited configurations
+              — which best-fit $k$-pole model the network sits at
+              on each plateau — entirely unchanged. The prefactor
+              $|J|$ depends on the target geometry and is not yet
+              known in closed form.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="sec-leaves-out" class="article-section">
+        <p class="section-number">§ 9</p>
+        <h2>What this leaves out</h2>
+
+        <p class="lede">
+          The picture above is for a single-input, single-output
+          linear recurrent network with a squared-error loss on the
+          impulse response. Two extensions deserve a flag, because
+          they affect what to expect when porting any of this to
+          something more realistic.
         </p>
 
-        $$\frac{\partial \mathcal{L}}{\partial W}
-          \;\approx\;
-          \underbrace{\left(\sum_t
-          \frac{\partial \ell}{\partial \hat{y}_t}\, x_t\right)}_{\text{scalar-like}}
-          \; c\, b^\top.$$
+        <h3>SISO → MIMO</h3>
 
         <p>
-          This is a <strong>rank-1</strong> matrix — the outer product
-          $c\, b^\top$, scaled by the input-error correlation. A rank-1
-          update to a real matrix can only shift its eigenvalues along
-          the real axis. To see why, consider a $2 \times 2$ case: if
-          $W$ has eigenvalues $\lambda_1, \lambda_2 \in \mathbb{R}$,
-          then after a rank-1 perturbation
-          $W \mapsto W + \eta\, u v^\top$, the new eigenvalues are
-          roots of a real quadratic whose discriminant
-          $\Delta = (\operatorname{tr} W')^2 - 4\det W'$ remains
-          non-negative as long as the perturbation is small relative
-          to the eigenvalue gap. The eigenvalues slide along
-          $\mathbb{R}$ but don't leave it.
+          Multi-input, multi-output systems replace a scalar pole
+          with a pole accompanied by an input/output direction in
+          $\mathbb{R}^{n_y}\times\mathbb{R}^{n_x}$. The transfer
+          function becomes matrix-valued, and the pole–zero
+          structure is bookkept via the Smith–McMillan form. Two
+          consequences: pole–zero cancellation generalises but is
+          matrix-valued (each cancellation is now a coordinated
+          collapse along a specific direction), and multiple modes
+          can activate at the same saddle when their effective
+          escape rates coincide, so the staircase no longer has to
+          climb by single rank jumps. The qualitative picture — a
+          ladder of progressively higher-rank rational
+          approximations — survives, but the per-step geometry is
+          less direct, and whether the "best-fit degree-$k$" claim
+          carries over verbatim is an open question.
         </p>
 
-        <h3>Eigenvalue collision</h3>
+        <h3>Linear → nonlinear</h3>
 
         <p>
-          Complex eigenvalues can only appear when two real eigenvalues
-          <em>collide</em> — when $\lambda_1 = \lambda_2$ and the
-          discriminant $\Delta = 0$. At this degenerate point, an
-          infinitesimal further perturbation (now no longer constrained
-          to rank-1, since the network has grown away from the saddle)
-          can push $\Delta$ negative, and the eigenvalues bifurcate
-          into a complex-conjugate pair:
+          Real recurrent networks have an activation:
+          $h_{t+1} = \phi(W h_t + b\, x_t)$. The hidden-state
+          distribution then has finite support, and the linearisation
+          of the network around any operating point has its own poles
+          and residues. The saddle-to-saddle picture is expected to
+          survive when a pole-zero pair separates coherently across
+          the operating points visited — the effective escape rate
+          is set by the slowest of them, so dwell times generically
+          stretch relative to the linear prediction. The structural
+          claim — that each plateau corresponds to a best-fit
+          degree-$k$ rational, evaluated locally — is at most
+          empirical, and proving it would require showing that the
+          coherence condition holds on the relevant operating points
+          throughout training. A nonlinear RNN is, at best, a
+          slowly-time-varying linear system; "best-fit degree-$k$"
+          becomes a family of fits rather than a single one.
         </p>
-
-        $$\lambda_{1,2} = \frac{\operatorname{tr} W'}{2}
-          \pm \frac{\sqrt{\Delta}}{2}
-          \quad\xrightarrow{\Delta &lt; 0}\quad
-          a \pm b\,i.$$
-
-        <p>
-          This is a topological necessity, not a dynamical accident.
-          The eigenvalues of a <em>real</em> matrix are roots of a
-          real characteristic polynomial, so they are either real or
-          come in conjugate pairs. A continuous deformation of
-          parameters cannot turn a real eigenvalue into a lone complex
-          one — it must pass through the <em>discriminant locus</em>
-          $\Sigma = \{W : \Delta(W) = 0\}$, where two eigenvalues
-          meet.
-        </p>
-
-        <p>
-          The collision happens not at the target pole locations, but
-          at whatever real-axis position is optimal for the current
-          reduced-order model. Two real eigenvalues, both drawn toward
-          a region of the spectrum where the target has a complex pair,
-          converge and bifurcate once the gradient has accumulated
-          enough off-diagonal structure to break the rank-1 alignment.
-        </p>
-
-        <h3>Why real structure comes first</h3>
-
-        <p>
-          Putting this together: the earliest weight updates are
-          rank-1 and can only produce real eigenvalue motion.
-          Complex pairs require (i) two eigenvalues to have converged
-          to the same real value, and (ii) the gradient to have
-          developed rank-2 structure — both of which require time.
-          Real modes activate first simply because real eigenvalue
-          motion is the only kind available to a rank-1 perturbation
-          of a near-zero real matrix.
-        </p>
-
-        <p>
-          In Saxe's feedforward networks, this question never arises:
-          singular values are always real and non-negative. In the
-          recurrent setting, eigenvalues <em>can</em> become complex
-          — but only through this collision mechanism. Real dynamical
-          structure (exponential decay, monotone impulse responses)
-          precedes oscillatory structure (damped sinusoids, resonant
-          peaks) as a <em>geometric</em> consequence of how gradient
-          descent builds up the weight matrix.
-        </p>
-
-        <p>
-          Below, a 3-dimensional network trains on a target that
-          requires one complex-conjugate pair. Watch two real
-          eigenvalues slide toward each other on the real axis,
-          collide, and split off vertically into conjugate partners.
-          The right panels show $\operatorname{Re}(\lambda)$
-          converging and $\operatorname{Im}(\lambda)$ branching at
-          the collision moment.
-        </p>
-
-        <div id="widget-eigenvalue-collision" class="widget-slot widget-l-middle"></div>
       </section>
 
       <section id="sec-references" class="article-section">
@@ -858,8 +792,8 @@
     <footer class="article-footer">
       <div class="footer-inner">
         <p class="footer-note">
-          Draft for review. All §§ 1–8 figures are functional, pending a
-          full read-through pass.
+          Draft for review. §§ 1–7 carry interactive figures; § 8 is
+          prose-only; § 9 is the caveats coda.
         </p>
       </div>
     </footer>

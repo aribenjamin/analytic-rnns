@@ -681,6 +681,27 @@ d-footnote .fn-inline-marker:hover {
   margin-left: -6px;
 }
 
+.phenomena-list {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0;
+}
+.phenomena-list > li {
+  margin-bottom: var(--space-5, 28px);
+  padding-left: 6px;
+}
+.phenomena-list > li::marker {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.phenomena-list > li > p:first-child {
+  margin-top: 0;
+}
+.phenomena-list > li > p:last-child {
+  margin-bottom: 0;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
  * Mobile and reduced-motion
  * ───────────────────────────────────────────────────────────────────────── */
