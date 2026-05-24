@@ -1,51 +1,45 @@
 <!--
-  §6 widget: progressive k-pole rational approximation.
+  §7 widget: the plateaus are best-fit degree-k transfer functions.
 
-  Trains a (W, b, c) student on a FIXED target (3 modes / 4-dim) and shows:
-    1. z-plane with live eigenvalues + ghost target poles
-    2. |H(e^{iθ})| with precomputed optimal k-pole overlays
-    3. Loss curve with "k active" labels
+  Trains a (W, b, c) student on the FIXED 3-real-pole target {0.3, 0.6, 0.9}
+  with equal residues 1. Three panels:
 
-  The input-type toggle demonstrates data-dependent gating: switching from
-  white noise to lowpass/highpass gates modes at unexcited frequencies.
+    1. z-plane — live eigenvalues + trails + ghost target poles + live zeros
+    2. |H(e^{iθ})| — learned vs target vs precomputed optimal k-pole overlays
+    3. loss vs training time (log-log), with horizontal dotted reference
+       lines at the precomputed Gram-loss optima L*_1, L*_2, L*_3.
+
+  The point: at each plateau the loss curve lands on one of the dotted
+  reference lines, and the eigenvalues sit at the Gram-optimal k-pole
+  configuration — *not* at any subset of the target's poles.
 -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { ZPlane, type ZPlanePoint, type ZPlaneTrail } from '../lib/plots/ZPlane';
-  import { TimeSeries } from '../lib/plots/TimeSeries';
+  import { TimeSeries, type TimeSeriesTrace } from '../lib/plots/TimeSeries';
   import { BodePlot, type BodeOverlay } from '../lib/plots/BodePlot';
   import {
     toModalSystem,
-    impulseResponse,
+    impulseResponseOfModes,
     type TraceSnapshot,
     type ModalTarget,
     type Mode,
   } from '../lib/gradientFlow';
-  import {
-    totalDimOfModes,
-    inputFromKind,
-    convolveCausal,
-    type InputKind,
-  } from '../lib/rnnTrain';
-  import { impulseResponseOfModes } from '../lib/gradientFlow';
-  import { evalH, zeros as computeZeros, type ModalSystem } from '../lib/transferFn';
+  import { inputFromKind } from '../lib/rnnTrain';
+  import { evalH, zeros as computeZeros } from '../lib/transferFn';
   import { expi, abs as cabs } from '../lib/complex';
   import { OPTIMAL_FITS, FIXED_TARGET_POLES, FIXED_TARGET_RESIDUES } from '../lib/optimalFits';
 
   const T_HORIZON = 160;
-  const TOTAL_DIM = 4;
+  const TOTAL_DIM = 3;
   const N_FREQ = 256;
 
-  // Fixed target: 3 modes (real 0.85, complex pair 0.65e^{iπ/3}, real -0.5)
+  // Target: three real poles {0.3, 0.6, 0.9}, equal residues. Matches
+  // FIXED_TARGET_POLES / FIXED_TARGET_RESIDUES in optimalFits.ts.
   const fixedModes: Mode[] = [
-    { kind: 'real', p: 0.85, alpha: Math.sqrt(1.2), beta: Math.sqrt(1.2) },
-    {
-      kind: 'pair',
-      p: { re: 0.325, im: 0.5629165125 },
-      alpha: { re: Math.sqrt(0.8) * Math.cos(Math.PI / 12), im: Math.sqrt(0.8) * Math.sin(Math.PI / 12) },
-      beta: { re: Math.sqrt(0.8) * Math.cos(Math.PI / 12), im: Math.sqrt(0.8) * Math.sin(Math.PI / 12) },
-    },
-    { kind: 'real', p: -0.5, alpha: Math.sqrt(0.6), beta: Math.sqrt(0.6) },
+    { kind: 'real', p: 0.3, alpha: 1, beta: 1 },
+    { kind: 'real', p: 0.6, alpha: 1, beta: 1 },
+    { kind: 'real', p: 0.9, alpha: 1, beta: 1 },
   ];
 
   function buildTarget(): ModalTarget {
@@ -53,19 +47,18 @@
     return { modes: fixedModes, gStar, T: T_HORIZON };
   }
 
-  let initScaleLog = -2.5;
+  let initScaleLog = -2;
   $: initScale = Math.pow(10, initScaleLog);
-  let runSeed = 42;
-  let inputKind: InputKind = 'white';
+  let runSeed = 7;
 
   let inputSeq: number[] = [];
   let yStar: number[] = [];
 
   const cfg = {
     dt: 2e-3,
-    steps: 30000,
-    snapshots: 240,
-    rhoThreshold: 0.1,
+    steps: 60000,
+    snapshots: 280,
+    rhoThreshold: 0.05,
   };
 
   let target: ModalTarget = buildTarget();
@@ -86,7 +79,7 @@
   let freqTheta: number[] = [];
   let targetMag: number[] = [];
 
-  // Precompute frequency responses for optimal k-pole fits
+  // Precompute frequency responses for optimal k-pole fits.
   const optimalMags: number[][] = OPTIMAL_FITS.map((fit) => {
     const mags = new Array<number>(N_FREQ);
     for (let i = 0; i < N_FREQ; i++) {
@@ -111,11 +104,11 @@
     return mags;
   });
 
-  // Precompute target zeros for ghost markers
+  // Precompute target zeros for ghost markers.
   const targetZeros = computeZeros({ poles: FIXED_TARGET_POLES, residues: FIXED_TARGET_RESIDUES });
 
-  const OVERLAY_COLORS = ['#888', '#aaa', '#ccc', '#ddd'];
   const MODE_COLORS = ['#d1495b', '#edae49', '#66a182', '#2e4057'];
+  const REF_LINE_COLORS = ['#7aa0c4', '#a59ad6', '#c79ac7'];
 
   function magOnHalfCircle(sys: { poles: any[]; residues: any[] }): number[] {
     const out = new Array(N_FREQ);
@@ -126,32 +119,45 @@
     return out;
   }
 
-  function pointsForSnapshot(snap: TraceSnapshot): ZPlanePoint[] {
+  function pointsForSnapshot(snap: TraceSnapshot, k: number): ZPlanePoint[] {
     const pts: ZPlanePoint[] = [];
     // Ghost target poles
-    for (let k = 0; k < FIXED_TARGET_POLES.length; k++) {
-      const p = FIXED_TARGET_POLES[k];
-      pts.push({ id: `ghost-pole-${k}`, z: p, kind: 'ghost-pole', draggable: false });
+    for (let i = 0; i < FIXED_TARGET_POLES.length; i++) {
+      pts.push({ id: `ghost-pole-${i}`, z: FIXED_TARGET_POLES[i], kind: 'ghost-pole', draggable: false });
     }
     // Ghost target zeros
-    for (let k = 0; k < targetZeros.length; k++) {
-      pts.push({ id: `ghost-zero-${k}`, z: targetZeros[k], kind: 'ghost-zero', draggable: false });
+    for (let i = 0; i < targetZeros.length; i++) {
+      pts.push({ id: `ghost-zero-${i}`, z: targetZeros[i], kind: 'ghost-zero', draggable: false });
+    }
+    // Reference markers for the currently-relevant optimal k-pole fit (faded).
+    if (k >= 1 && k <= OPTIMAL_FITS.length) {
+      const fit = OPTIMAL_FITS[k - 1];
+      const refColor = REF_LINE_COLORS[k - 1];
+      for (let i = 0; i < fit.poles.length; i++) {
+        pts.push({
+          id: `ref-pole-k${k}-${i}`,
+          z: fit.poles[i],
+          kind: 'ghost-pole',
+          color: refColor,
+          draggable: false,
+        });
+      }
     }
     // Live eigenvalues (poles)
-    for (let k = 0; k < snap.state.modes.length; k++) {
-      const m = snap.state.modes[k];
-      const color = MODE_COLORS[k % MODE_COLORS.length];
+    for (let i = 0; i < snap.state.modes.length; i++) {
+      const m = snap.state.modes[i];
+      const color = MODE_COLORS[i % MODE_COLORS.length];
       const poleMag = m.kind === 'real'
         ? Math.abs(m.p as number)
         : Math.hypot((m.p as any).re, (m.p as any).im);
       const active = poleMag > cfg.rhoThreshold;
       const c = active ? color : 'var(--text-faint, #bbb)';
       if (m.kind === 'real') {
-        pts.push({ id: `pole-${k}`, z: { re: m.p, im: 0 }, kind: 'pole', color: c, draggable: false });
+        pts.push({ id: `pole-${i}`, z: { re: m.p, im: 0 }, kind: 'pole', color: c, draggable: false });
       } else {
-        pts.push({ id: `pole-${k}`, z: m.p, kind: 'pole', color: c, draggable: false });
+        pts.push({ id: `pole-${i}`, z: m.p, kind: 'pole', color: c, draggable: false });
         pts.push({
-          id: `pole-${k}-conj`,
+          id: `pole-${i}-conj`,
           z: { re: (m.p as any).re, im: -(m.p as any).im },
           kind: 'pole',
           color: c,
@@ -159,11 +165,11 @@
         });
       }
     }
-    // Live zeros — computed from the current modal state
+    // Live zeros — computed from the current modal state.
     const sys = toModalSystem(snap.state);
     const liveZeros = computeZeros(sys);
-    for (let k = 0; k < liveZeros.length; k++) {
-      pts.push({ id: `zero-${k}`, z: liveZeros[k], kind: 'zero', color: '#555', draggable: false });
+    for (let i = 0; i < liveZeros.length; i++) {
+      pts.push({ id: `zero-${i}`, z: liveZeros[i], kind: 'zero', color: '#555', draggable: false });
     }
     return pts;
   }
@@ -176,23 +182,25 @@
         : Math.hypot((m.p as any).re, (m.p as any).im);
       if (poleMag > cfg.rhoThreshold) k += m.kind === 'real' ? 1 : 2;
     }
-    return k;
+    return Math.min(k, OPTIMAL_FITS.length);
   }
 
   function redraw(): void {
     if (!trace.length || !zPlane || !lossPlot || !bodePlot) return;
     const snap = trace[Math.min(cursor, trace.length - 1)];
-    zPlane.update(pointsForSnapshot(snap));
+    const k = activeK(snap);
 
-    // Build eigenvalue trails from trace history up to cursor
+    zPlane.update(pointsForSnapshot(snap, k));
+
+    // Eigenvalue trails through the trace up to the cursor.
     const trails: ZPlaneTrail[] = [];
     const modeCount = trace[0]?.state.modes.length ?? 0;
-    for (let k = 0; k < modeCount; k++) {
+    for (let i = 0; i < modeCount; i++) {
       const pts: { re: number; im: number }[] = [];
       const ptsConj: { re: number; im: number }[] = [];
       let isPair = false;
       for (let t = 0; t <= Math.min(cursor, trace.length - 1); t++) {
-        const m = trace[t].state.modes[k];
+        const m = trace[t].state.modes[i];
         if (!m) continue;
         if (m.kind === 'real') {
           pts.push({ re: m.p, im: 0 });
@@ -203,26 +211,16 @@
         }
       }
       if (pts.length > 1) {
-        trails.push({
-          id: `trail-${k}`,
-          points: pts,
-          color: MODE_COLORS[k % MODE_COLORS.length] + '55',
-        });
+        trails.push({ id: `trail-${i}`, points: pts, color: MODE_COLORS[i % MODE_COLORS.length] + '55' });
         if (isPair && ptsConj.length > 1) {
-          trails.push({
-            id: `trail-${k}-conj`,
-            points: ptsConj,
-            color: MODE_COLORS[k % MODE_COLORS.length] + '55',
-          });
+          trails.push({ id: `trail-${i}-conj`, points: ptsConj, color: MODE_COLORS[i % MODE_COLORS.length] + '55' });
         }
       }
     }
     zPlane.setTrails(trails);
 
+    // Bode overlays: show optimal-k overlays for k=1..activeK, highlighted.
     const liveMag = magOnHalfCircle(toModalSystem(snap.state));
-    const k = activeK(snap);
-
-    // Show optimal overlays up to active k
     const overlays: BodeOverlay[] = [];
     for (let i = 0; i < Math.min(k, optimalMags.length); i++) {
       const isActive = i === k - 1;
@@ -231,33 +229,55 @@
         color: isActive ? '#2e86de' : '#bbb',
         dasharray: '5 4',
         width: isActive ? 2 : 1,
-        opacity: isActive ? 0.85 : 0.3,
+        opacity: isActive ? 0.9 : 0.3,
       });
     }
-
     bodePlot.update(
       { theta: freqTheta, magnitude: liveMag },
       { theta: freqTheta, magnitude: targetMag },
       overlays,
     );
 
-    // Loss curve
-    const lossSeen: number[] = trace.slice(0, cursor + 1).map((s) => s.loss);
+    // Loss panel: log-x in step number τ, log-y in loss.
+    // Show full curve (faint dashed) + traversed portion (solid) + three
+    // horizontal dotted reference lines at the Gram-optimum L*_k values.
+    const tausAll: number[] = trace.map((s) => Math.max(1, s.tau));
     const lossAll: number[] = trace.map((s) => s.loss);
+    const tausSeen = tausAll.slice(0, cursor + 1);
+    const lossSeen = lossAll.slice(0, cursor + 1);
+    const xMin = tausAll[0];
+    const xMax = tausAll[tausAll.length - 1];
+
+    // Reference lines for k where the optimum is meaningfully nonzero. The
+    // full-rank (k=n) optimum is essentially 0 (machine-precision), drawing
+    // a dotted line at it just wastes vertical space.
+    const REF_LINE_THRESHOLD = 1e-10;
+    const refLines: TimeSeriesTrace[] = OPTIMAL_FITS
+      .filter((fit) => fit.error > REF_LINE_THRESHOLD)
+      .map((fit, i) => ({
+        id: `ref-k${fit.k}`,
+        values: [fit.error, fit.error],
+        xValues: [xMin, xMax],
+        color: REF_LINE_COLORS[i % REF_LINE_COLORS.length],
+        width: 1.2,
+        dasharray: '4 4',
+      }));
+
     lossPlot.update([
+      ...refLines,
       {
         id: 'loss-all',
         values: lossAll,
+        xValues: tausAll,
         color: 'var(--text-faint, #ccc)',
-        style: 'line',
         width: 1,
         dasharray: '2 3',
       },
       {
         id: 'loss-seen',
         values: lossSeen,
+        xValues: tausSeen,
         color: 'var(--accent-active, #d1495b)',
-        style: 'line',
         width: 2.2,
       },
     ]);
@@ -277,7 +297,7 @@
         return;
       }
       redraw();
-      playTimer = window.setTimeout(tick, 40);
+      playTimer = window.setTimeout(tick, 35);
     };
     tick();
   }
@@ -302,11 +322,6 @@
     redraw();
   }
 
-  function rebuildInputAndTarget(): void {
-    inputSeq = inputFromKind(inputKind, T_HORIZON, runSeed);
-    yStar = inputKind === 'impulse' ? target.gStar.slice() : convolveCausal(target.gStar, inputSeq);
-  }
-
   function rebuildBodePlot(): void {
     const targetSys = toModalSystem({ modes: target.modes });
     targetMag = magOnHalfCircle(targetSys);
@@ -320,7 +335,8 @@
   function startTraining(): void {
     pause();
     worker?.terminate();
-    rebuildInputAndTarget();
+    inputSeq = inputFromKind('impulse', T_HORIZON, runSeed);
+    yStar = target.gStar.slice();
     rebuildBodePlot();
     loading = true;
     cursor = 0;
@@ -365,28 +381,16 @@
     startTraining();
   }
 
-  function setInputKind(k: InputKind): void {
-    if (k === inputKind) return;
-    inputKind = k;
-    startTraining();
-  }
-
-  const INPUT_KIND_OPTIONS: { id: InputKind; label: string }[] = [
-    { id: 'impulse', label: 'impulse' },
-    { id: 'white', label: 'white' },
-    { id: 'lowpass', label: 'lowpass' },
-    { id: 'highpass', label: 'highpass' },
-  ];
-
   onMount(() => {
     zPlane = new ZPlane(zSvg, {});
     lossPlot = new TimeSeries(lossSvg, {
-      width: 340,
-      height: 170,
+      width: 720,
+      height: 200,
       xLabel: 'training time τ',
       yLabel: 'loss',
+      xLog: true,
       yLog: true,
-      margin: { top: 6, right: 14, bottom: 38, left: 52 },
+      margin: { top: 10, right: 80, bottom: 38, left: 56 },
       labelFontSize: 12,
     });
     startTraining();
@@ -402,12 +406,12 @@
   $: kLabel = trace.length ? activeK(trace[Math.min(cursor, trace.length - 1)]) : 0;
 </script>
 
-<div class="widget widget--approx">
-  <div class="widget-banner">Progressive k-pole approximation</div>
+<div class="widget widget--bestfit">
+  <div class="widget-banner">Plateaus are best-fit degree-k models</div>
 
   <div class="widget-row widget-row--top">
     <div class="widget-panel widget-panel--zplane">
-      <div class="widget-panel-header">z-plane — poles (×) and zeros (○)</div>
+      <div class="widget-panel-header">z-plane — poles (×) and zeros (○); pale stars: optimal k-pole fit</div>
       <svg bind:this={zSvg}></svg>
     </div>
     <div class="widget-panel widget-panel--bode">
@@ -423,7 +427,7 @@
 
   <div class="widget-panel widget-panel--loss">
     <div class="widget-panel-header">
-      loss L(τ)
+      loss L(τ) — log–log; dotted lines are Gram-loss optima L<sup>*</sup><sub>k</sub>
       {#if !loading}
         &nbsp;·&nbsp; {kLabel} active pole{kLabel !== 1 ? 's' : ''}
       {/if}
@@ -431,14 +435,14 @@
     <svg bind:this={lossSvg}></svg>
   </div>
 
-  <div class="widget-controls approx-controls">
+  <div class="widget-controls bestfit-controls">
     <div class="widget-btn-row">
       <button class="widget-btn" on:click={playing ? pause : play} disabled={loading || !trace.length}>
         {playing ? 'pause' : 'play'}
       </button>
       <button class="widget-btn" on:click={restart} disabled={loading || !trace.length}>restart</button>
       <button class="widget-btn" on:click={newRun} disabled={loading}>new init</button>
-      <span class="approx-stats">
+      <span class="bestfit-stats">
         {#if loading}
           training…
         {:else}
@@ -456,42 +460,26 @@
         <input type="range" min={-4} max={-1} step={0.25} bind:value={initScaleLog} on:change={onInitScaleCommit} disabled={loading} />
       </label>
     </div>
-    <div class="input-kind-row">
-      <span class="input-kind-label">input&nbsp;</span>
-      <div class="seg" role="radiogroup" aria-label="training input">
-        {#each INPUT_KIND_OPTIONS as opt}
-          <button
-            type="button"
-            class="seg-btn"
-            class:seg-btn--active={inputKind === opt.id}
-            on:click={() => setInputKind(opt.id)}
-            disabled={loading}
-            role="radio"
-            aria-checked={inputKind === opt.id}
-          >{opt.label}</button>
-        {/each}
-      </div>
-    </div>
   </div>
 </div>
 
 <style>
-  .widget--approx {
+  .widget--bestfit {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
     max-width: 100%;
     overflow: hidden;
   }
-  .widget--approx svg {
+  .widget--bestfit svg {
     width: 100%;
     height: auto;
     display: block;
   }
-  .widget-panel--zplane { min-width: 0; }
-  .widget-panel--bode { min-width: 0; }
+  .widget-panel--zplane,
+  .widget-panel--bode,
   .widget-panel--loss { min-width: 0; }
-  .widget-panel--loss :global(svg) { max-height: 170px; }
+  .widget-panel--loss :global(svg) { max-height: 220px; }
   .widget-row--top {
     display: grid;
     gap: var(--space-4);
@@ -503,7 +491,7 @@
       align-items: start;
     }
   }
-  .approx-controls input[type='range'] { width: 100%; }
+  .bestfit-controls input[type='range'] { width: 100%; }
   .slider-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -521,35 +509,7 @@
   @media (max-width: 720px) {
     .slider-row { grid-template-columns: 1fr; }
   }
-  .input-kind-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    flex-wrap: wrap;
-  }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--text-faint, #bbb);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .seg-btn {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    padding: 4px 10px;
-    font: inherit;
-    cursor: pointer;
-    color: var(--text-soft, #555);
-    border-right: 1px solid var(--text-faint, #bbb);
-  }
-  .seg-btn:last-child { border-right: 0; }
-  .seg-btn:hover:not(:disabled) { background: var(--surface-soft, #f3f3f3); }
-  .seg-btn--active { background: var(--accent-active, #d1495b); color: white; }
-  .seg-btn--active:hover:not(:disabled) { background: var(--accent-active, #d1495b); }
-  .seg-btn:disabled { opacity: 0.5; cursor: default; }
-  .approx-stats {
+  .bestfit-stats {
     font-family: var(--font-mono, JetBrains Mono, monospace);
     font-size: 13px;
     color: var(--text-soft);
