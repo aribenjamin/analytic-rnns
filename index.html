@@ -417,17 +417,10 @@
 
       <section id="sec-bestfit" class="article-section">
         <p class="section-number">§ 7</p>
-        <h2>Plateaus are best-fit degree-k models</h2>
+        <h2>Plateaus resemble best-fit degree-k models</h2>
 
         <p class="lede">
-          After <a href="#sec-saddle">§ 5</a> we know each plateau is
-          a saddle where some residues vanish; after
-          <a href="#sec-staircase">§ 6</a> we've watched the
-          staircase fall step by step. The natural next question:
-          <em>which</em> residues are zero on plateau $k$, and where
-          do the active poles sit? It turns out the answer is sharp,
-          and — like the singular-value story for feedforward
-          networks — it has a closed form.
+          What does the function we learn at each plateau look like?
         </p>
 
         <h3>The best $k$-pole rational approximation</h3>
@@ -436,144 +429,65 @@
           Set the network aside for a moment. Suppose we are simply
           handed the target impulse response $g_t^{\ast}$ and asked:
           <em>what is the best degree-$k$ rational approximation to
-          it?</em> Concretely, choose <strong>both</strong> $k$ poles
-          $\{p_1, \ldots, p_k\}$ and $k$ residues
-          $\{r_1, \ldots, r_k\}$ to minimise
+          it?</em> This is the question the §6 staircase widget is
+          implicitly answering at each plateau — the network is, at
+          any moment, some $k$-pole rational function trying to fit
+          the target. What's the <em>best</em> it could be at each
+          $k$? It turns out to be a well-defined object: a finite
+          optimisation over $k$ numbers with a (generically) unique
+          global minimum.<d-footnote>
+            <span>
+              Concretely, choose <strong>both</strong> $k$ poles
+              $\{p_1, \ldots, p_k\}$ and $k$ residues
+              $\{r_1, \ldots, r_k\}$ to minimise
+              $\mathcal{L}(p, r) = \tfrac{1}{2}\sum_{t \ge 0}\bigl(
+              \sum_j r_j\,p_j^{\,t} - g_t^{\ast}\bigr)^2.$
+              The problem is non-convex in the poles, but the
+              residues are easy: at any fixed pole configuration $p$
+              the loss is quadratic in $r$, so the optimal residues
+              are the unique solution of the normal equations
+              $G\,r = d$ with
+              $G_{jl} = \tfrac{1}{1 - p_j\,p_l}$ and
+              $d_l = \sum_j \tfrac{r_j^{\ast}}{1 - p_j^{\ast}\,p_l}.$
+              Plugging those optimal residues back in profiles them
+              out and leaves a closed-form objective in the poles
+              alone — the <strong>Gram identity</strong>
+              $\mathcal{L}^{\ast}(p) \equiv \min_r \mathcal{L}(p, r)
+              = \tfrac{1}{2}\bigl(\|g^{\ast}\|^2 - d^\top G^{-1}
+              d\bigr).$ The best degree-$k$ rational approximation
+              to $g^{\ast}$ is then the global minimum of
+              $\mathcal{L}^{\ast}_k(p)$ over all real-pole
+              configurations (or complex with conjugate symmetry).
+            </span>
+          </d-footnote>
         </p>
 
-        <div class="math-block">
-          $$\mathcal{L}(p, r) \;=\;
-            \tfrac{1}{2}\sum_{t \ge 0}\Bigl(
-              \textstyle\sum_j r_j\,p_j^{\,t} \;-\; g_t^{\ast}
-            \Bigr)^2.$$
-        </div>
+        <h3>Does gradient descent learn the best $k$-pole rational approximation?</h3>
 
         <p>
-          This is the question the §6 staircase widget is implicitly
-          answering at each plateau — the network is, at any moment,
-          some $k$-pole rational function trying to fit the target.
-          What's the <em>best</em> it could be at each $k$?
-        </p>
-
-        <p>
-          The problem is non-convex in the poles. But the residues
-          are easy: at any fixed pole configuration $p$, the loss is
-          quadratic in $r$, so the optimal residues are linear
-          least-squares — the unique solution of the normal equations
-          $G\,r = d$ with
-        </p>
-
-        <div class="math-block">
-          $$G_{jl} \;=\; \frac{1}{1 - p_j\,p_l},
-            \qquad d_l \;=\; \sum_j \frac{r_j^{\ast}}{1 - p_j^{\ast}\,p_l}.$$
-        </div>
-
-        <p>
-          Plugging those optimal residues back in profiles them out
-          and leaves a closed-form objective in the poles alone — the
-          <strong>Gram identity</strong>:
-        </p>
-
-        <div class="math-block">
-          $$\mathcal{L}^{\ast}(p) \;\equiv\; \min_r \mathcal{L}(p, r)
-            \;=\; \tfrac{1}{2}\bigl(\|g^{\ast}\|^2 \;-\; d^\top G^{-1} d\bigr).$$
-        </div>
-
-        <p>
-          The best degree-$k$ rational approximation to $g^{\ast}$ is
-          then the <em>global minimum of $\mathcal{L}^{\ast}_k(p)$
-          over all real-pole configurations</em> (or complex with
-          conjugate symmetry). A finite optimisation over $k$ numbers
-          — easy to solve numerically, hard to write in closed form,
-          but very much a single well-defined object for each $k$.
-        </p>
-
-        <h3>The plateau <em>is</em> that optimum</h3>
-
-        <p>
-          The claim of this section: at the rank-$k$ plateau of
+          Here's a fun hypothesis: at the rank-$k$ plateau of
           gradient descent, the student's $k$ active poles and their
-          residues together sit at this global minimum. The student
-          <em>is</em> the best $k$-pole rational approximation of the
-          target, not approximately and not in some restricted sense.
+          residues together are the $k$-pole rational approximation.
         </p>
 
         <p>
-          Two reasons this is worth stressing. First, those optimal
+          Note <tbody></tbody>hose optimal
           pole locations are generically <strong>not at any subset of
-          the target's poles</strong>. For two real targets
-          $\{0.3,\, 0.9\}$ with equal residues, the best one-pole
-          approximation sits at $p \approx 0.84$ — between the two
-          targets, biased toward the slower one because slow modes
-          contribute more squared energy. For a complex target
-          $0.85\, e^{i\pi/5}$ approximated by a single real pole,
-          the optimum sits at $p \approx 0.40$, nowhere near the
-          target's real part of $0.69$. Each plateau represents a
+          the target's poles</strong>.  Each plateau represents a
           compromise pole configuration optimised for the rank-$k$
-          budget.
-        </p>
+          budget. This means that <em>old poles readjust when a new one activates.</em>
 
         <p>
-          Second, the residues at the plateau are not anything
-          special either — they are just $r^{\ast}(p) = G^{-1} d$
-          evaluated at whatever the eigenvalues of $W$ currently are
-          (see the adiabatic bullet in <a href="#sec-phenomena">§ 8</a>).
-          So the joint minimum factors: the eigenvalues do the work
-          of finding the right $p$, the residues track along.
-        </p>
-
-        <h3>Old poles readjust when a new one activates</h3>
-
-        <p>
-          The rank-$k$ Gram optimum is not contained in the
-          rank-$(k+1)$ Gram optimum. When a new eigenvalue activates,
-          the already-active poles shift to their new optimal
-          positions. Each escape is a global reconfiguration, not a
-          local addition.
-        </p>
-
-        <p>
-          For three real targets $\{0.3,\, 0.6,\, 0.9\}$ with equal
-          residues, the closed-form optima are: $k = 1$ at
-          $p \approx 0.77$; $k = 2$ at $(0.44,\, 0.89)$; $k = 3$ at
-          the targets themselves. Moving from the $k = 2$ plateau to
-          the $k = 3$ plateau, the existing two poles must shift from
-          $(0.44,\, 0.89)$ to $(0.6,\, 0.9)$ while the third
-          eigenvalue activates at $0.3$.
-        </p>
-
-        <h3>The widget</h3>
-
-        <p>
+          We can test this hypothesis in simulation.
           Below, an $n = 3$ student trains on the three-real-pole
           target above at small initialisation $\sigma_0 \approx
-          0.01$, driven by a unit impulse — so the training loss
-          $\tfrac{1}{2}\sum_t (g_t - g_t^{\ast})^2$ measures the
-          same impulse-response error the rational-fit problem
-          minimises.
-        </p>
-
-        <p>
-          Watch three things at once. The <strong>loss panel</strong>
-          (log–log) plateaus at the dotted reference heights — those
-          are $\min_p\mathcal{L}^{\ast}_k$, the precomputed
-          best-degree-$k$ losses for $k = 1, 2$ (the $k = 3$ optimum
-          is the target itself, off the bottom of the axis). A plateau
-          at $\min_p\mathcal{L}^{\ast}_k$ is direct evidence that the
-          student has become the best $k$-pole rational fit. The
-          <strong>Bode panel</strong> overlays the precomputed
-          optimal $k$-pole frequency response (blue dashed) on the
-          learned curve (red); they coincide whenever the network is
-          parked on a plateau. And in the <strong>z-plane</strong>,
-          faint stars mark the optimal pole positions for the current
-          $k$ — the live eigenvalues drift toward them, sit there,
-          then readjust as the next pole activates.
+          0.01$.
         </p>
 
         <div id="widget-k-pole-best-fit" class="widget-slot widget-l-page"></div>
 
         <p>
-          The mechanism in one sentence: because $(b, c)$ are
+          Because $(b, c)$ are
           dimensionally fast and the eigenvalues of $W$ are slow
           (<a href="#sec-phenomena">§ 8</a>, bullet 1), the residues
           continuously equilibrate to $r^{\ast}(p) = G^{-1}d$ for
@@ -586,14 +500,7 @@
 
       <section id="sec-phenomena" class="article-section">
         <p class="section-number">§ 8</p>
-        <h2>Five more things to know</h2>
-
-        <p class="lede">
-          A grab-bag of other phenomena that fall out of the
-          framework, each with a short pedagogical note. None gets
-          its own widget — they are easier to see in a few lines than
-          in a panel.
-        </p>
+        <h2>Some observations on dynamics</h2>
 
         <ol class="phenomena-list">
           <li>
