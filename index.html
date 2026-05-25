@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Modes, residues, and the meromorphic geometry of recurrent learning</title>
+    <title>Learning dynamics of recurrent networks</title>
     <meta name="description" content="An interactive guide to saddle-to-saddle learning in recurrent neural networks, via pole-zero geometry in the complex plane." />
 
     <!-- Fonts: Source Serif 4 (body), Inter (headings & UI), JetBrains Mono (code) -->
@@ -83,12 +83,9 @@
           follows a trajectory through parameter space, slowly moving from 
           a random initialization towards a solution.
           At some finite time we truncate this trajectory, and end up with a network.
-          We can think of this trajectory as moving from "simple" functions to "complex" ones.
+          What we learn earlier on this trajectory can be thought of as a "bias" affecting 
+          what sorts of functions networks "prefer" to learn.
         </p>
-        <p> 
-          What "simple" really means depends on the architecture and the data. 
-          In some cases, we can describe very precisely what the stages of learning are,
-          and thus what definition of "simple" the network is biased toward.
         <p>
           For example, if you train a deep linear network with a small initialization on a structured target, the loss
           does not glide smoothly to zero. It drops in <em>steps</em>.<sup class="cite"><a href="#ref-saxe2014">1</a></sup>
@@ -109,7 +106,9 @@
           where each step is a saddle point in the loss landscape. 
           It's quite clear why gradient descent would get stuck at saddles, 
           and how it would escape them one by one. Our 'modes' correspond to 
-          the thing that we pick up when we escape a saddle.
+          the thing that we pick up when we escape a saddle. For linear <em>feedforward</em> networks, 
+          the modes are computable via the singular value decomposition of the training data.
+          
         </p>
 
       </section>
@@ -143,9 +142,7 @@
           Unlike in feedforward linear networks, the answer is not the
           singular values. If you're familiar with linear dynamical systems, your 
           next guess might be the
-          eigendevalues of $W$. This is already a step up: whereas 
-          singular values are nonnegative real numbers, eigenvalues are complex numbers.
-          However, eigenvalues are not still not quite the object we're looking for. 
+          eigenvalues of $W$. This is close, but eigenvalues are not still not quite the object we're looking for. 
           You might also guess the moments when we learn new modes correspond to bifurcations
            in the dynamics of $h_t$. But none of these are quite right.
         </p>
@@ -165,6 +162,11 @@
       <section id="sec-transfer" class="article-section">
         <p class="section-number">§ 3</p>
         <h2>Introducing the transfer function</h2>
+
+        <p class="lede">
+        Understanding learning dynamics requires describing the function the network implements,
+        which is best done with the <strong>transfer function</strong>, a classic tool from control theory.
+        </p>
 
         <p>
           When we ask "what has the network learned?" we really mean: what
@@ -191,19 +193,26 @@
         </p>
 
         <p>
-          The impulse response has hidden structure. Diagonalising $W$ with
-          eigenvalues $\{p_k\}_{k=1}^n$ collapses the matrix powers into
-          scalar powers,
+          The impulse response has hidden structure. Diagonalising
+          $W = V P V^{-1}$ with $P = \mathrm{diag}(p_1, \dots, p_n)$
+          being the set of eigenvalues $\{p_k\}_{k=1}^n$ of $W$ that we
+          got to play around with above, and $V$ the matrix of right eigenvectors. 
+          You might recall that eigenvectors
+          are those vectors $v_k$ that are simply scaled by $W$, as in the equation
+          $W v_k = p_k v_k$. The eigenvalues $p_k$ are the scaling factors.
+          Because of this definition they play very nicely when we apply $W$
+          repeatedly $s$ times: $W^s v_k = p_k^s v_k$. This means that when we write
+           the impulse response in the eigenbasis of $W$, it breaks up into
+           a sum of pure exponentials:
         </p>
 
         <div class="math-block">
-          $$g_s \;=\; \sum_{k=1}^{n} r_k\, p_k^{\,s},$$
+          $$g_s \;=\; c^\top V P^s V^{-1} b \;=\; \sum_{k=1}^{n} r_k\, p_k^{\,s},$$
         </div>
 
         <p>
           one term per <em>mode</em> of $W$. Each mode rings as a pure
-          exponential of decay rate $|p_k|$ and angular frequency
-          $\arg(p_k)$, weighted by the <strong>residue</strong>
+          exponential weighted by the <strong>residue</strong>
           $r_k = (c^\top v_k)(u_k^\top b)$, the product of how
           strongly the input excites mode $k$ and how strongly the
           readout listens to it. 
@@ -236,7 +245,7 @@
           other values of $z$ the $n$ terms cancel and $H(z) = 0$; these
           are the <strong>zeros</strong> (there are at most $n-1$ of them).
           Poles and zeros together fix $H(z)$ up to overall scale — a
-          finite list of marked points in $\mathbb{C}$ that completely
+          finite list of marked points in the complex plane $\mathbb{C}$ that completely
           describes the I/O map.
         </p>
 
@@ -293,12 +302,6 @@
           <p>
             The answer is: <em>saddles are the points in (W, b, c) parameter space where a pole and a 
             zero cancel each other out, making the residue zero.</em>
-<!--             
-          You might wonder how we know this even though we haven't yet mentioned the objective function
-          or the training data at all. Yet it's just like how
-          we know that new singular values in feedforward networks correspond to modes and saddles,
-          even though we don't know the data. The specifics of the learning problem instead determine
-          the order in which the poles and zeros separate and their location. -->
 
         </p>
 
@@ -374,18 +377,9 @@
         </p>
 
         <p>
-          By construction this is a critical point of the full loss
-          (the other modes were at their critical points, and we just
-          showed $(\alpha_k, \beta_k)$ are too). It is a saddle of the
-          full loss as long as the other modes were at minima of their
-          restricted losses, which they generically are. So the
-          hunting strategy works: <em>every cancellation point
-          $r_k = 0$ — with the other modes at their best-fit values —
-          is a saddle of the full loss landscape.</em>
-          This isn't just an artefact of restricting to one mode:
-          the full Hessian in $(c, b)$ space has
-          exactly this block structure — each mode contributes a
-          saddle direction.
+          Note that this point is a saddle of the
+          full loss only as long as the other modes are also at minima of their
+          restricted losses. We are only looking at the loss along this one mode. 
         </p>
 
         <p>
@@ -428,14 +422,9 @@
         <p>
           Set the network aside for a moment. Suppose we are simply
           handed the target impulse response $g_t^{\ast}$ and asked:
-          <em>what is the best degree-$k$ rational approximation to
-          it?</em> This is the question the §6 staircase widget is
-          implicitly answering at each plateau — the network is, at
-          any moment, some $k$-pole rational function trying to fit
-          the target. What's the <em>best</em> it could be at each
-          $k$? It turns out to be a well-defined object: a finite
-          optimisation over $k$ numbers with a (generically) unique
-          global minimum.<d-footnote>
+          <em>what is the best linear recurrent system with exactly $k$ poles?</em> 
+          This seems like a reasonable hypothesis to check against,
+          and this optimum is something we can write down.<d-footnote>
             <span>
               Concretely, choose <strong>both</strong> $k$ poles
               $\{p_1, \ldots, p_k\}$ and $k$ residues
@@ -465,13 +454,14 @@
         <h3>Does gradient descent learn the best $k$-pole rational approximation?</h3>
 
         <p>
-          Here's a fun hypothesis: at the rank-$k$ plateau of
+          Playing around with the widget above, what seems to be happening is that
+          at the rank-$k$ plateau of
           gradient descent, the student's $k$ active poles and their
-          residues together are the $k$-pole rational approximation.
+          residues together resemble a good the $k$-pole rational approximation to the target.
         </p>
 
         <p>
-          Note <tbody></tbody>hose optimal
+          Note those optimal
           pole locations are generically <strong>not at any subset of
           the target's poles</strong>.  Each plateau represents a
           compromise pole configuration optimised for the rank-$k$
@@ -479,9 +469,11 @@
 
         <p>
           We can test this hypothesis in simulation.
-          Below, an $n = 3$ student trains on the three-real-pole
-          target above at small initialisation $\sigma_0 \approx
-          0.01$.
+          Below, an $n = 3$ student trains on a three-real-pole
+          target at small initialisation $\sigma_0 \approx
+          0.01$. We've plotted the losses of the best 1-pole and 2-pole approximations to the target, 
+          and you can see that the plateaus of gradient descent line up with these best-approximation losses
+          very closesly.
         </p>
 
         <div id="widget-k-pole-best-fit" class="widget-slot widget-l-page"></div>
@@ -555,14 +547,7 @@
             </div>
 
             <p>
-              The $W$ gradient is parametrically smaller by one
-              factor of $\sigma_0$ — two factors enter, one from
-              $h_{t-1}$ via $b$ and one from $\lambda_{t+1}$ via
-              $c$, while $(b, c)$ each pick up only one. So
-              $(b, c)$ evolve on a timescale $\sim 1/\sigma_0$ and
-              $W$ on $\sim 1/\sigma_0^{\,2}$; the rescaling
-              $s = \sigma_0^{\,2}\,\tau$ puts both on an $O(1)$
-              scale and makes $(b, c)$ the <em>fast</em> variables,
+             This makes the input/ouput streams $(b, c)$ the <em>fast</em> variables, and
               $W$ the <em>slow</em> one.
             </p>
           </li>
@@ -571,11 +556,9 @@
             <p>
               <strong>Other saddles exist — such as the $b^\top c$ sign
               flip.</strong> </p>
-              <p>The all-zero saddle is the largest
-              critical point near initialisation, but not the only
-              one. Before any single mode activates, the very first
-              scalar quantity that grows is the "pass-through" information stream
-              that bypasses the recurrent weights altogether. This is the 
+              <p> Before any single pole/zero separation happens, the very first
+              saddle we find actually corresponds to learning the non-recurrent pathway
+              that bypasses the recurrent weights. This is the 
               "zero-lag" path. For our system with 1D inputs and 1D outputs,
               this is structurally a rank-1 residue. 
               </p><p> This 0-lag path learns first before any poles separate from zero.
@@ -692,8 +675,26 @@
         </ol>
       </section>
 
-      <section id="sec-leaves-out" class="article-section">
+      <section id="Conclusion" class="article-section">
         <p class="section-number">§ 9</p>
+        <h2>Conclusion</h2>
+        <p>
+          The learning dynamics of recurrent networks are saddle-to-saddle, just like feedforward networks. 
+          This gives linear networks a powerful inductive bias: they learn simple functions first, 
+          and then gradually build up to more complex ones.
+          The definition of simple is roughly the degree of the transfer function, 
+          which is the number of poles in the I/O map.
+          We do indeed pick up eigenvalues of $W$ one by one, in the sense that
+          we have a sequential series of pole-zero pair separations.
+        </p>
+
+        <p>
+          It's possible that this framework could help us understand the dynamics of learning
+          tasks in neuroscience, especially in motor control where you have a timeseries output. 
+          However, I think it would be crucial to 
+          extend the story in a few ways to make it more realistic for neuroscience. 
+        </p>
+        
         <h2>What this leaves out</h2>
 
         <p class="lede">
@@ -701,6 +702,12 @@
           linear recurrent network with a squared-error loss on the
           impulse response. Changes for 'real' networks may break our story.
         </p>
+
+        There's lots of directions for future work that would make this story
+        more realistic for both neuroscience and machine learning. For example,
+        learning in neuroscience never starts with near-zero initializations. Yet, as usual,
+        the theory is cleanest for tiny initializations when you start right at a global saddle point.
+        Some other key points of departure from the idealised story above are:
 
         <h3>SISO → MIMO</h3>
 

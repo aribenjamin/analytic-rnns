@@ -53,7 +53,7 @@
   let initScaleLog = -2.5;
   $: initScale = Math.pow(10, initScaleLog);
   let runSeed = 0;
-  let inputKind: InputKind = 'white';
+  let inputKind: InputKind = 'impulse';
 
   // Input + target response. Rebuilt by rebuildInputAndTarget(); kept here
   // so the IO panel and the worker share the same arrays.

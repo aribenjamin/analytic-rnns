@@ -16,7 +16,7 @@
   <div class="widget-panel-header">the network we mean</div>
   <NetworkDiagram />
   <p class="schematic-caption">
-    Input <em>x<sub>t</sub></em> drives the recurrent population
+    Scalar input <em>x<sub>t</sub></em> drives the recurrent population
     <em>h<sub>t</sub></em> through the input weights <em>b</em>; the
     population feeds itself through <em>W</em>; the readout <em>c</em>
     <span class="ts">⊤</span> reduces the population back to a scalar

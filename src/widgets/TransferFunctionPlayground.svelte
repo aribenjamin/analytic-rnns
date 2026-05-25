@@ -45,6 +45,7 @@
   let zPlane: ZPlane | null = null;
   let bode: BodePlot | null = null;
   let impulse: TimeSeries | null = null;
+  let dragged = false;
 
   function currentPoles(): Complex[] {
     return polePairs.flatMap((pair) => pair.map((p) => p.z));
@@ -101,6 +102,7 @@
     // Find which pole or zero this id refers to and update it. For complex
     // pairs we mirror the partner. We keep poles strictly inside the unit disk
     // (clamp |p| <= 0.99) and similarly clamp zeros to a sensible range.
+    dragged = true;
     const isConj = id.endsWith('-conj');
     const baseId = isConj ? id.slice(0, -'-conj'.length) : id;
     const partnerId = isConj ? baseId : `${id}-conj`;
@@ -179,7 +181,12 @@
   <div class="widget-row widget-row--two">
     <div class="widget-panel widget-panel--zplane">
       <div class="widget-panel-header">z-plane</div>
-      <svg bind:this={zSvg}></svg>
+      <div class="zplane-stage">
+        <svg bind:this={zSvg}></svg>
+        {#if !dragged}
+          <span class="drag-hint">drag me ↗</span>
+        {/if}
+      </div>
     </div>
     <div class="widget-panel">
       <div class="widget-panel-header">|H(e<sup>iθ</sup>)| — frequency response</div>
@@ -240,6 +247,28 @@
     width: 100%;
     height: auto;
     display: block;
+  }
+
+  .zplane-stage {
+    position: relative;
+    width: 100%;
+  }
+
+  .drag-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(58, 47, 30, 0.06);
   }
 
   /* Impulse-response panel: input → network → response, read left to right. */

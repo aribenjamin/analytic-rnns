@@ -51,6 +51,7 @@
   let reconCanvas: HTMLCanvasElement;
   let lossSvg: SVGSVGElement;
   let sigmaSvg: SVGSVGElement;
+  let root: HTMLDivElement;
 
   let bandImages: number[][] = [];
   let bandEnergy: number[] = [];
@@ -297,12 +298,25 @@
     });
     ready = true;
 
+    const render = (window as any).renderMathInElement;
+    if (render && root) {
+      render(root, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false },
+        ],
+        throwOnError: false,
+      });
+    }
+
     return () => cancelAnimationFrame(rafId);
   });
 </script>
 
-<div class="widget widget--ff-staircase">
-  <div class="widget-banner">Primer: Learning dynamics in deep linear nets</div>
+<div class="widget widget--ff-staircase" bind:this={root}>
+  <div class="widget-banner">Background: Learning dynamics in deep linear nets</div>
 
   <div class="imgrow">
     <div class="widget-panel">
@@ -418,14 +432,17 @@
   </div>
 
   <p class="widget-hint">
-    A two-layer linear network — a linear autoencoder — is trained to reproduce
-    the image. Natural images are built from cosine modes (the principal
-    components the JPEG transform exploits), and the network discovers them one
-    band at a time. Each plateau in the error curve is a saddle; each cliff is
-    one band of modes switching on. Low spatial frequencies carry the most
-    variance, so they escape their saddle first — the reconstruction sharpens
-    like a progressive JPEG. Lower the initialization scale σ⁰ to make the
-    steps crisper.
+    A two-layer linear network — a linear autoencoder — is trained to reconstruct
+    images. The first thing it learns are the first principle components of
+    the dataset, in order. The reconstructions look like lowpass filters because 
+    natural images have a 1/f power spectrum, so most of
+    the variance is highest in low spatial frequencies. In fact, the PCs in fact look like the
+    discrete cosine basis — the basis of the JPEG compression scheme (discrete cosine basis).
+    I find it to be an incredible 'accident' that linear networks naturally
+    learn an efficient compression of natural images through learning dynamics. 
+    This network is not structurally
+    bottlenecked to learn a low-dimensional representation; at infinite training times it will
+    just converge to the identity matrix, $W_2 W_1 = I$.
   </p>
 </div>
 
