@@ -27,8 +27,40 @@
 
     <link rel="stylesheet" href="/src/styles/article.css" />
     <link rel="stylesheet" href="/src/styles/widgets.css" />
+
+    <style>
+      /* Slim back-to-site strip. Uses the article's own tokens so it
+         blends with the page rather than trying to match the destination. */
+      .site-nav {
+        max-width: 984px;
+        margin: 0 auto;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        font-family: var(--font-sans);
+        font-size: 14px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .site-nav a {
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+      .site-nav a:hover { color: var(--accent); }
+      .site-nav-home { font-weight: 600; }
+      @media (max-width: 720px) {
+        .site-nav { padding: 12px 16px; font-size: 13px; }
+      }
+    </style>
   </head>
   <body>
+    <nav class="site-nav">
+      <a class="site-nav-home" href="https://ari-benjamin.com/">Ari Benjamin</a>
+      <a class="site-nav-back" href="https://ari-benjamin.com/blog/">← back to blog</a>
+    </nav>
+
     <header class="article-header l-page">
       <p class="eyebrow">interactive essay · draft</p>
       <h1 class="article-title">Understanding the learning dynamics of recurrent neural networks</h1>
@@ -119,7 +151,7 @@
 
         <p>
           A neuroscientist's
-          everyday network model has memory: a recurrent population
+          everyday network model has recurrence. Take a recurrent population
           $h_t \in \mathbb{R}^n$ driven by a scalar input $x_t$ and read out
           as a scalar $y_t$,
         </p>
