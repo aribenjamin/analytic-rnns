@@ -1,13 +1,15 @@
 <!--
   §7 widget: the plateaus are best-fit degree-k transfer functions.
 
-  Trains a (W, b, c) student on the FIXED 3-real-pole target {0.3, 0.6, 0.9}
-  with equal residues 1. Three panels:
+  Trains a (W, b, c) student on a 3-real-pole target (default {0.3, 0.6, 0.9},
+  rerolled to random real poles in (-0.92, 0.92) by "new init"). Each click
+  recomputes the Gram-optimal k-pole reference overlays for the new target.
+  Three panels:
 
     1. z-plane — live eigenvalues + trails + ghost target poles + live zeros
-    2. |H(e^{iθ})| — learned vs target vs precomputed optimal k-pole overlays
+    2. |H(e^{iθ})| — learned vs target vs optimal k-pole overlays
     3. loss vs training time (log-log), with horizontal dotted reference
-       lines at the precomputed Gram-loss optima L*_1, L*_2, L*_3.
+       lines at the Gram-loss optima L*_1, L*_2, L*_3.
 
   The point: at each plateau the loss curve lands on one of the dotted
   reference lines, and the eigenvalues sit at the Gram-optimal k-pole
@@ -27,24 +29,60 @@
   } from '../lib/gradientFlow';
   import { inputFromKind } from '../lib/rnnTrain';
   import { evalH, zeros as computeZeros } from '../lib/transferFn';
-  import { expi, abs as cabs } from '../lib/complex';
-  import { OPTIMAL_FITS, FIXED_TARGET_POLES, FIXED_TARGET_RESIDUES } from '../lib/optimalFits';
+  import { expi, abs as cabs, type Complex } from '../lib/complex';
+  import { computeOptimalFits, type OptimalFit } from '../lib/computeOptimalFits';
 
   const T_HORIZON = 160;
   const TOTAL_DIM = 3;
   const N_FREQ = 256;
 
-  // Target: three real poles {0.3, 0.6, 0.9}, equal residues. Matches
-  // FIXED_TARGET_POLES / FIXED_TARGET_RESIDUES in optimalFits.ts.
-  const fixedModes: Mode[] = [
-    { kind: 'real', p: 0.3, alpha: 1, beta: 1 },
-    { kind: 'real', p: 0.6, alpha: 1, beta: 1 },
-    { kind: 'real', p: 0.9, alpha: 1, beta: 1 },
-  ];
+  // Deterministic PRNG (mulberry32). Used to draw new random real target
+  // poles each time the user clicks "new init".
+  function mulberry32(seed: number): () => number {
+    let s = seed >>> 0;
+    return () => {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-  function buildTarget(): ModalTarget {
-    const gStar = impulseResponseOfModes(fixedModes, T_HORIZON);
-    return { modes: fixedModes, gStar, T: T_HORIZON };
+  // Default target on first paint: three real poles {0.3, 0.6, 0.9}, equal
+  // residues 1. Matches the published §7 figure. Rerolled by `newRun`.
+  let targetPoles: number[] = [0.3, 0.6, 0.9];
+  let targetResidues: number[] = [1, 1, 1];
+
+  function modesFromTargetPoles(poles: number[], residues: number[]): Mode[] {
+    return poles.map((p, i) => ({ kind: 'real' as const, p, alpha: residues[i], beta: 1 }));
+  }
+
+  function buildTarget(modes: Mode[]): ModalTarget {
+    const gStar = impulseResponseOfModes(modes, T_HORIZON);
+    return { modes, gStar, T: T_HORIZON };
+  }
+
+  // Draw 3 random real poles in (-0.92, 0.92) with min |Δ| ≥ 0.18 and
+  // |p| ≥ 0.25 so the saddle-to-saddle picture stays visually interesting
+  // (all poles meaningfully outside the rho-threshold band, well separated).
+  function drawRandomTargetPoles(rng: () => number): number[] {
+    const MIN_MAG = 0.25;
+    const MAX_MAG = 0.92;
+    const MIN_SEP = 0.18;
+    while (true) {
+      const ps: number[] = [];
+      for (let i = 0; i < 3; i++) {
+        const sign = rng() < 0.5 ? -1 : 1;
+        ps.push(sign * (MIN_MAG + (MAX_MAG - MIN_MAG) * rng()));
+      }
+      ps.sort((a, b) => a - b);
+      let ok = true;
+      for (let i = 1; i < ps.length; i++) {
+        if (Math.abs(ps[i] - ps[i - 1]) < MIN_SEP) { ok = false; break; }
+      }
+      if (ok) return ps;
+    }
   }
 
   let initScaleLog = -2;
@@ -61,7 +99,7 @@
     rhoThreshold: 0.05,
   };
 
-  let target: ModalTarget = buildTarget();
+  let target: ModalTarget = buildTarget(modesFromTargetPoles(targetPoles, targetResidues));
   let trace: TraceSnapshot[] = [];
   let cursor = 0;
   let playing = false;
@@ -79,8 +117,11 @@
   let freqTheta: number[] = [];
   let targetMag: number[] = [];
 
-  // Precompute frequency responses for optimal k-pole fits.
-  const optimalMags: number[][] = OPTIMAL_FITS.map((fit) => {
+  let optimalFits: OptimalFit[] = [];
+  let optimalMags: number[][] = [];
+  let targetZeros: Complex[] = [];
+
+  function magOfFit(fit: OptimalFit): number[] {
     const mags = new Array<number>(N_FREQ);
     for (let i = 0; i < N_FREQ; i++) {
       const th = (Math.PI * i) / (N_FREQ - 1);
@@ -92,20 +133,28 @@
         const denom = { re: z.re - p.re, im: z.im - p.im };
         const denomMag2 = denom.re * denom.re + denom.im * denom.im;
         if (denomMag2 < 1e-30) continue;
-        const q = {
-          re: (r.re * denom.re + r.im * denom.im) / denomMag2,
-          im: (r.im * denom.re - r.re * denom.im) / denomMag2,
-        };
-        H.re += q.re;
-        H.im += q.im;
+        H.re += (r.re * denom.re + r.im * denom.im) / denomMag2;
+        H.im += (r.im * denom.re - r.re * denom.im) / denomMag2;
       }
       mags[i] = Math.sqrt(H.re * H.re + H.im * H.im);
     }
     return mags;
-  });
+  }
 
-  // Precompute target zeros for ghost markers.
-  const targetZeros = computeZeros({ poles: FIXED_TARGET_POLES, residues: FIXED_TARGET_RESIDUES });
+  function recomputeTargetDerived(): void {
+    optimalFits = computeOptimalFits(
+      targetPoles,
+      targetResidues,
+      target.gStar,
+      mulberry32((runSeed * 0x9e37 + 1) | 0),
+    );
+    optimalMags = optimalFits.map(magOfFit);
+    targetZeros = computeZeros({
+      poles: targetPoles.map((p) => ({ re: p, im: 0 })),
+      residues: targetResidues.map((r) => ({ re: r, im: 0 })),
+    });
+  }
+  recomputeTargetDerived();
 
   const MODE_COLORS = ['#d1495b', '#edae49', '#66a182', '#2e4057'];
   const REF_LINE_COLORS = ['#7aa0c4', '#a59ad6', '#c79ac7'];
@@ -122,16 +171,16 @@
   function pointsForSnapshot(snap: TraceSnapshot, k: number): ZPlanePoint[] {
     const pts: ZPlanePoint[] = [];
     // Ghost target poles
-    for (let i = 0; i < FIXED_TARGET_POLES.length; i++) {
-      pts.push({ id: `ghost-pole-${i}`, z: FIXED_TARGET_POLES[i], kind: 'ghost-pole', draggable: false });
+    for (let i = 0; i < targetPoles.length; i++) {
+      pts.push({ id: `ghost-pole-${i}`, z: { re: targetPoles[i], im: 0 }, kind: 'ghost-pole', draggable: false });
     }
     // Ghost target zeros
     for (let i = 0; i < targetZeros.length; i++) {
       pts.push({ id: `ghost-zero-${i}`, z: targetZeros[i], kind: 'ghost-zero', draggable: false });
     }
     // Reference markers for the currently-relevant optimal k-pole fit (faded).
-    if (k >= 1 && k <= OPTIMAL_FITS.length) {
-      const fit = OPTIMAL_FITS[k - 1];
+    if (k >= 1 && k <= optimalFits.length) {
+      const fit = optimalFits[k - 1];
       const refColor = REF_LINE_COLORS[k - 1];
       for (let i = 0; i < fit.poles.length; i++) {
         pts.push({
@@ -182,7 +231,7 @@
         : Math.hypot((m.p as any).re, (m.p as any).im);
       if (poleMag > cfg.rhoThreshold) k += m.kind === 'real' ? 1 : 2;
     }
-    return Math.min(k, OPTIMAL_FITS.length);
+    return Math.min(k, optimalFits.length);
   }
 
   function redraw(): void {
@@ -252,7 +301,7 @@
     // full-rank (k=n) optimum is essentially 0 (machine-precision), drawing
     // a dotted line at it just wastes vertical space.
     const REF_LINE_THRESHOLD = 1e-10;
-    const refLines: TimeSeriesTrace[] = OPTIMAL_FITS
+    const refLines: TimeSeriesTrace[] = optimalFits
       .filter((fit) => fit.error > REF_LINE_THRESHOLD)
       .map((fit, i) => ({
         id: `ref-k${fit.k}`,
@@ -374,6 +423,12 @@
 
   function newRun(): void {
     runSeed = (runSeed + 1) | 0;
+    const rng = mulberry32(runSeed);
+    targetPoles = drawRandomTargetPoles(rng);
+    targetResidues = targetPoles.map(() => 1);
+    const modes = modesFromTargetPoles(targetPoles, targetResidues);
+    target = buildTarget(modes);
+    recomputeTargetDerived();
     startTraining();
   }
 
