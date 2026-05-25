@@ -595,6 +595,39 @@
 
           <li>
             <p>
+              <strong>The input spectrum decides which modes can be
+              learned.</strong>
+            </p>
+            <p>
+              The §7 widget uses a unit impulse, which excites every
+              frequency equally — so every mode of the target
+              eventually activates. With other inputs this stops
+              being automatic. At each saddle, the gradient that
+              drives the $(\alpha_k, \beta_k)$ escape for mode $k$
+              is the cross-energy of the input filtered through
+              mode-$k$'s kernel against the residual error,
+            </p>
+
+            <div class="math-block">
+              $$J_k \;=\; \sum_t \overline{\phi_k(t)}\, e_t,
+                \qquad
+                \phi_k(t) \;=\; \sum_{s} p_k^{\,s}\, x_{t-s}.$$
+            </div>
+
+            <p>
+              If the input has no energy at mode $k$'s frequency —
+              say a bandlimited signal whose passband doesn't
+              include $\arg p_k$ — then $\phi_k(t) \equiv 0$, so
+              $J_k = 0$, and the gradient in the
+              $(\alpha_k, \beta_k)$ directions is <em>exactly</em>
+              zero. The mode isn't slow to learn; it's invisible.
+              A lowpass training signal cannot teach the network a
+              high-frequency oscillation, period.
+            </p>
+          </li>
+
+          <li>
+            <p>
               <strong>The first eigenvalue is always real.</strong></p>
               <p>
               Even when the target wants a complex pair, the rank-1
