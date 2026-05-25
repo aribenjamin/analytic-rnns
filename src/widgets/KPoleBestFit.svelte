@@ -1,9 +1,11 @@
 <!--
   §7 widget: the plateaus are best-fit degree-k transfer functions.
 
-  Trains a (W, b, c) student on a 3-real-pole target (default {0.3, 0.6, 0.9},
-  rerolled to random real poles in (-0.92, 0.92) by "new init"). Each click
-  recomputes the Gram-optimal k-pole reference overlays for the new target.
+  Trains a (W, b, c) student on a degree-3 target (default: three real
+  poles {0.3, 0.6, 0.9}). "new init" rerolls the target — either three
+  random real poles or one real + one complex conjugate pair — and
+  recomputes the best-fit-degree-k reference overlays at runtime (search
+  over both all-real and complex-pair shapes).
   Three panels:
 
     1. z-plane — live eigenvalues + trails + ghost target poles + live zeros
@@ -27,6 +29,7 @@
     type ModalTarget,
     type Mode,
   } from '../lib/gradientFlow';
+  import type { ModalSystem } from '../lib/transferFn';
   import { inputFromKind } from '../lib/rnnTrain';
   import { evalH, zeros as computeZeros } from '../lib/transferFn';
   import { expi, abs as cabs, type Complex } from '../lib/complex';
@@ -49,13 +52,16 @@
     };
   }
 
-  // Default target on first paint: three real poles {0.3, 0.6, 0.9}, equal
-  // residues 1. Matches the published §7 figure. Rerolled by `newRun`.
-  let targetPoles: number[] = [0.3, 0.6, 0.9];
-  let targetResidues: number[] = [1, 1, 1];
-
-  function modesFromTargetPoles(poles: number[], residues: number[]): Mode[] {
-    return poles.map((p, i) => ({ kind: 'real' as const, p, alpha: residues[i], beta: 1 }));
+  // Default first-paint target: three real poles {0.3, 0.6, 0.9} with unit
+  // residues. Matches the published §7 figure. `newRun` rerolls this, and
+  // each reroll picks (with equal probability) either three real poles or
+  // one real + one complex conjugate pair — both have total degree 3.
+  function defaultTargetModes(): Mode[] {
+    return [
+      { kind: 'real', p: 0.3, alpha: 1, beta: 1 },
+      { kind: 'real', p: 0.6, alpha: 1, beta: 1 },
+      { kind: 'real', p: 0.9, alpha: 1, beta: 1 },
+    ];
   }
 
   function buildTarget(modes: Mode[]): ModalTarget {
@@ -63,26 +69,42 @@
     return { modes, gStar, T: T_HORIZON };
   }
 
-  // Draw 3 random real poles in (-0.92, 0.92) with min |Δ| ≥ 0.18 and
-  // |p| ≥ 0.25 so the saddle-to-saddle picture stays visually interesting
-  // (all poles meaningfully outside the rho-threshold band, well separated).
-  function drawRandomTargetPoles(rng: () => number): number[] {
+  function drawRealPole(rng: () => number, minMag: number, maxMag: number): number {
+    const sign = rng() < 0.5 ? -1 : 1;
+    return sign * (minMag + (maxMag - minMag) * rng());
+  }
+
+  function drawThreeRealModes(rng: () => number): Mode[] {
     const MIN_MAG = 0.25;
     const MAX_MAG = 0.92;
     const MIN_SEP = 0.18;
     while (true) {
       const ps: number[] = [];
-      for (let i = 0; i < 3; i++) {
-        const sign = rng() < 0.5 ? -1 : 1;
-        ps.push(sign * (MIN_MAG + (MAX_MAG - MIN_MAG) * rng()));
-      }
+      for (let i = 0; i < 3; i++) ps.push(drawRealPole(rng, MIN_MAG, MAX_MAG));
       ps.sort((a, b) => a - b);
       let ok = true;
       for (let i = 1; i < ps.length; i++) {
         if (Math.abs(ps[i] - ps[i - 1]) < MIN_SEP) { ok = false; break; }
       }
-      if (ok) return ps;
+      if (ok) return ps.map((p) => ({ kind: 'real' as const, p, alpha: 1, beta: 1 }));
     }
+  }
+
+  function drawRealPlusPairModes(rng: () => number): Mode[] {
+    const pReal = drawRealPole(rng, 0.25, 0.92);
+    // Complex pair: radius in [0.35, 0.92], angle in [π/6, 5π/6] (well off
+    // the real axis so it's visually distinct from the real pole).
+    const r = 0.35 + (0.92 - 0.35) * rng();
+    const theta = Math.PI / 6 + (2 * Math.PI / 3) * rng();
+    const p = { re: r * Math.cos(theta), im: r * Math.sin(theta) };
+    return [
+      { kind: 'real', p: pReal, alpha: 1, beta: 1 },
+      { kind: 'pair', p, alpha: { re: 1, im: 0 }, beta: { re: 1, im: 0 } },
+    ];
+  }
+
+  function drawRandomTargetModes(rng: () => number): Mode[] {
+    return rng() < 0.5 ? drawThreeRealModes(rng) : drawRealPlusPairModes(rng);
   }
 
   let initScaleLog = -2;
@@ -99,7 +121,7 @@
     rhoThreshold: 0.05,
   };
 
-  let target: ModalTarget = buildTarget(modesFromTargetPoles(targetPoles, targetResidues));
+  let target: ModalTarget = buildTarget(defaultTargetModes());
   let trace: TraceSnapshot[] = [];
   let cursor = 0;
   let playing = false;
@@ -120,6 +142,7 @@
   let optimalFits: OptimalFit[] = [];
   let optimalMags: number[][] = [];
   let targetZeros: Complex[] = [];
+  let targetSys: ModalSystem = { poles: [], residues: [] };
 
   function magOfFit(fit: OptimalFit): number[] {
     const mags = new Array<number>(N_FREQ);
@@ -142,17 +165,15 @@
   }
 
   function recomputeTargetDerived(): void {
+    targetSys = toModalSystem({ modes: target.modes });
     optimalFits = computeOptimalFits(
-      targetPoles,
-      targetResidues,
+      targetSys.poles,
+      targetSys.residues,
       target.gStar,
       mulberry32((runSeed * 0x9e37 + 1) | 0),
     );
     optimalMags = optimalFits.map(magOfFit);
-    targetZeros = computeZeros({
-      poles: targetPoles.map((p) => ({ re: p, im: 0 })),
-      residues: targetResidues.map((r) => ({ re: r, im: 0 })),
-    });
+    targetZeros = computeZeros(targetSys);
   }
   recomputeTargetDerived();
 
@@ -170,9 +191,9 @@
 
   function pointsForSnapshot(snap: TraceSnapshot, k: number): ZPlanePoint[] {
     const pts: ZPlanePoint[] = [];
-    // Ghost target poles
-    for (let i = 0; i < targetPoles.length; i++) {
-      pts.push({ id: `ghost-pole-${i}`, z: { re: targetPoles[i], im: 0 }, kind: 'ghost-pole', draggable: false });
+    // Ghost target poles (conjugate pairs are listed twice in targetSys).
+    for (let i = 0; i < targetSys.poles.length; i++) {
+      pts.push({ id: `ghost-pole-${i}`, z: targetSys.poles[i], kind: 'ghost-pole', draggable: false });
     }
     // Ghost target zeros
     for (let i = 0; i < targetZeros.length; i++) {
@@ -424,10 +445,7 @@
   function newRun(): void {
     runSeed = (runSeed + 1) | 0;
     const rng = mulberry32(runSeed);
-    targetPoles = drawRandomTargetPoles(rng);
-    targetResidues = targetPoles.map(() => 1);
-    const modes = modesFromTargetPoles(targetPoles, targetResidues);
-    target = buildTarget(modes);
+    target = buildTarget(drawRandomTargetModes(rng));
     recomputeTargetDerived();
     startTraining();
   }
