@@ -510,8 +510,16 @@
         <ol class="phenomena-list">
           <li>
             <p>
-              <strong>$b$ and $c$ learn faster than $W$, and the
-              residues track the optimum adiabatically.</strong>
+              <strong>$b$ and $c$ learn faster than $W$</strong>.
+              </p>
+            <p>
+              It turns out that the input and output streams evolve much 
+              faster than the recurrent weights when our initialization is small.
+              In fact,
+              $(b, c)$ evolve on a timescale $\sim 1/\sigma_0$ and
+              $W$ on $\sim 1/\sigma_0^{\,2}$, which can be a really big difference for tiny $\sigma_0$.
+              </p>
+              <p> To see this, we can write out the BPTT gradients for the recurrent linear network. 
               The BPTT gradients of $\mathcal{L} = \tfrac{1}{2}\sum_t
               e_t^{\,2}$ with $e_t = \hat y_t - y_t^{\ast}$ are
             </p>
@@ -555,49 +563,24 @@
               $W$ on $\sim 1/\sigma_0^{\,2}$; the rescaling
               $s = \sigma_0^{\,2}\,\tau$ puts both on an $O(1)$
               scale and makes $(b, c)$ the <em>fast</em> variables,
-              $W$ the <em>slow</em> one. (Measured slopes on a
-              log–log gradient-norm vs. $\sigma_0$ plot: $1.00$,
-              $1.00$, $1.99$, across three decades.)
-            </p>
-
-            <p>
-              In the slow–fast picture, $(b, c)$ adiabatically
-              equilibrate on each plateau to whatever residues are
-              optimal for the current eigenvalues of $W$ — exactly
-              the closed-form $r^{\ast}(p) = G^{-1} d$ of
-              <a href="#sec-bestfit">§ 7</a>. By the envelope
-              theorem applied to the $(b, c)$-optimised loss, the
-              effective slow dynamics on $W$ are
-            </p>
-
-            <div class="math-block">
-              $$\dot W \;=\; -\nabla_W\, \mathcal{L}^{\ast}_\rho(W)
-                  \;+\; O(\sigma_0),$$
-            </div>
-
-            <p>
-              where $\mathcal{L}^{\ast}_\rho(W)$ is the rank-$\rho$
-              profile loss from <a href="#sec-bestfit">§ 7</a>. This
-              is why that section's picture works: the fast residues
-              turn the joint $(W, b, c)$ flow into pure gradient
-              descent of the slow variable $W$ on the closed-form
-              Gram landscape, with $(b, c)$ slaved along. The
-              relation is sharp enough to see in data: the pooled
-              log–log relationship between residue tracking error
-              and pole velocity has slope $1.01$ with correlation
-              $0.99$.
+              $W$ the <em>slow</em> one.
             </p>
           </li>
 
           <li>
             <p>
-              <strong>Other saddles exist — the $b^\top c$ sign
-              flip.</strong> The all-zero saddle is the largest
+              <strong>Other saddles exist — such as the $b^\top c$ sign
+              flip.</strong> </p>
+              <p>The all-zero saddle is the largest
               critical point near initialisation, but not the only
               one. Before any single mode activates, the very first
-              scalar quantity that grows is $b^\top c$ — the
-              $n = 1$-like residue when only one direction in the
-              network is doing anything. Half the time the random
+              scalar quantity that grows is the "pass-through" information stream
+              that bypasses the recurrent weights altogether. This is the 
+              "zero-lag" path. For our system with 1D inputs and 1D outputs,
+              this is structurally a rank-1 residue. 
+              </p><p> This 0-lag path learns first before any poles separate from zero.
+              Perhaps you've seen this in the learning trajectories.
+              Half the time the random
               initialisation gives it the wrong sign, and learning
               must flip it. In pole-space this looks bizarre: the
               single real eigenvalue of $W$ runs off the real axis
@@ -612,7 +595,8 @@
 
           <li>
             <p>
-              <strong>The first eigenvalue is always real.</strong>
+              <strong>The first eigenvalue is always real.</strong></p>
+              <p>
               Even when the target wants a complex pair, the rank-1
               plateau places both eigenvalues of $W$ on the real
               axis. The reason is structural: near $W = 0$ the
@@ -633,26 +617,33 @@
 
           <li>
             <p>
-              <strong>Imaginary parts onset as
-              $\sqrt{\tau - \tau_{\rm coll}}$ at the collision.</strong>
-              When two real eigenvalues meet and bifurcate into a
-              complex-conjugate pair, the discriminant
-              $D = (\operatorname{tr} W)^2 - 4\det W$ of the
-              characteristic polynomial passes linearly through
-              zero. The imaginary part of the eigenvalues is
-              $\tfrac{1}{2}\sqrt{-D}$, so
-              $|\mathrm{Im}\,\lambda| \propto \sqrt{\tau - \tau_{\rm coll}}$
-              in a window after the collision. This is a generic
-              transcritical-bifurcation signature; numerically the
-              measured exponent across five seeds is
-              $0.529 \pm 0.013$ against a theoretical $0.5$.
+              <strong>Oscillations switch on with a square-root
+              ramp.</strong></p>
+              <p>Once two real eigenvalues collide and
+              split into a complex pair, the oscillation frequency
+              doesn't appear at full strength — it grows at a speed proportional to the square root of time.
+              That is, $|\mathrm{Im}\,\lambda| \propto \sqrt{\tau - \tau_{\rm coll}}$,
+              where $\tau_{\rm coll}$ is the moment of collision.
+              The reason is that the imaginary part is set by
+              $\tfrac{1}{2}\sqrt{-D}$, where
+              $D = (\operatorname{tr} W)^2 - 4\det W$ is the
+              discriminant of $W$'s characteristic polynomial. Since
+              $W$ evolves smoothly under gradient descent, so does
+              $D$ — and a smooth function that <em>crosses</em> zero
+              (rather than just touching it and bouncing back) does
+              so linearly to leading order:
+              $D(\tau) \approx D'(\tau_{\rm coll})(\tau - \tau_{\rm coll})$.
+              Taking the square root of
+              something linear gives the square-root onset.
+              I verified this in some simulations, and it holds up pretty strongly.
             </p>
           </li>
 
           <li>
             <p>
               <strong>Plateau dwell time is logarithmic in
-              $\sigma_0$.</strong> Near each saddle, the unstable
+              $\sigma_0$.</strong></p>
+              <p>Near each saddle, the unstable
               mode grows exponentially with a target-specific rate
               $|J|$, starting at amplitude of order $\sigma_0$, so
               the escape time is approximately
@@ -661,9 +652,8 @@
               Smaller initialisation stretches the plateaux but
               leaves the <em>sequence</em> of visited configurations
               — which best-fit $k$-pole model the network sits at
-              on each plateau — entirely unchanged. The prefactor
-              $|J|$ depends on the target geometry and is not yet
-              known in closed form.
+              on each plateau — entirely unchanged. I'm not sure what the prefactor
+              $|J|$ is but it depends on the target geometry.
             </p>
           </li>
         </ol>
@@ -676,9 +666,7 @@
         <p class="lede">
           The picture above is for a single-input, single-output
           linear recurrent network with a squared-error loss on the
-          impulse response. Two extensions deserve a flag, because
-          they affect what to expect when porting any of this to
-          something more realistic.
+          impulse response. Changes for 'real' networks may break our story.
         </p>
 
         <h3>SISO → MIMO</h3>
@@ -687,18 +675,7 @@
           Multi-input, multi-output systems replace a scalar pole
           with a pole accompanied by an input/output direction in
           $\mathbb{R}^{n_y}\times\mathbb{R}^{n_x}$. The transfer
-          function becomes matrix-valued, and the pole–zero
-          structure is bookkept via the Smith–McMillan form. Two
-          consequences: pole–zero cancellation generalises but is
-          matrix-valued (each cancellation is now a coordinated
-          collapse along a specific direction), and multiple modes
-          can activate at the same saddle when their effective
-          escape rates coincide, so the staircase no longer has to
-          climb by single rank jumps. The qualitative picture — a
-          ladder of progressively higher-rank rational
-          approximations — survives, but the per-step geometry is
-          less direct, and whether the "best-fit degree-$k$" claim
-          carries over verbatim is an open question.
+          function becomes matrix-valued.
         </p>
 
         <h3>Linear → nonlinear</h3>
@@ -708,18 +685,7 @@
           $h_{t+1} = \phi(W h_t + b\, x_t)$. The hidden-state
           distribution then has finite support, and the linearisation
           of the network around any operating point has its own poles
-          and residues. The saddle-to-saddle picture is expected to
-          survive when a pole-zero pair separates coherently across
-          the operating points visited — the effective escape rate
-          is set by the slowest of them, so dwell times generically
-          stretch relative to the linear prediction. The structural
-          claim — that each plateau corresponds to a best-fit
-          degree-$k$ rational, evaluated locally — is at most
-          empirical, and proving it would require showing that the
-          coherence condition holds on the relevant operating points
-          throughout training. A nonlinear RNN is, at best, a
-          slowly-time-varying linear system; "best-fit degree-$k$"
-          becomes a family of fits rather than a single one.
+          and residues.
         </p>
       </section>
 
