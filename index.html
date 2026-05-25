@@ -512,21 +512,80 @@
             <p>
               <strong>$b$ and $c$ learn faster than $W$, and the
               residues track the optimum adiabatically.</strong>
-              The impulse response is $g_t = c^\top W^t b$, so at
-              random initialisation with all parameters at scale
-              $\sigma_0$, the gradient with respect to $(b, c)$ is
-              of order $\sigma_0$ while the gradient with respect to
-              $W$ is of order $\sigma_0^2$ — one extra factor of
-              $\sigma_0$ from the chain through $W$. After a
-              time-rescale $s = \sigma_0^2\,\tau$ the $(b, c)$
-              subspace is "fast" and equilibrates within each
-              plateau to the optimal residues for the current pole
-              positions; the slow drift lives in the eigenvalues of
-              $W$. Empirically (a numerical companion to this
-              article) the pooled log–log relationship between
-              residue-tracking error and pole velocity has slope
-              $1.01$ with correlation $0.99$ — the adiabatic picture
-              is sharp.
+              The BPTT gradients of $\mathcal{L} = \tfrac{1}{2}\sum_t
+              e_t^{\,2}$ with $e_t = \hat y_t - y_t^{\ast}$ are
+            </p>
+
+            <div class="math-block">
+              $$\frac{\partial \mathcal{L}}{\partial c}
+                  = \sum_t e_t\, h_{t+1},\qquad
+                \frac{\partial \mathcal{L}}{\partial b}
+                  = \sum_t x_t\, \lambda_{t+1},\qquad
+                \frac{\partial \mathcal{L}}{\partial W}
+                  = \sum_t \lambda_{t+1}\, h_t^{\top},$$
+            </div>
+
+            <p>
+              with adjoint
+              $\lambda_t = e_t\, c + W^{\top} \lambda_{t+1}$. At
+              initialisation with all parameters at scale $\sigma_0$,
+              count powers of $\sigma_0$ on each side: the hidden
+              state $h_t = W h_{t-1} + b\, x_t$ is $O(\sigma_0)$,
+              the student prediction $\hat y_t = c^{\top} h_{t+1}
+              = O(\sigma_0^{\,2})$ is negligible against the target
+              so $e_t = O(1)$, and the adjoint
+              $\lambda_t = e_t\,c + W^{\top}\lambda_{t+1}$ is
+              $O(\sigma_0)$. Substituting,
+            </p>
+
+            <div class="math-block">
+              $$\frac{\partial \mathcal{L}}{\partial c} = O(\sigma_0),
+                \qquad
+                \frac{\partial \mathcal{L}}{\partial b} = O(\sigma_0),
+                \qquad
+                \frac{\partial \mathcal{L}}{\partial W} = O(\sigma_0^{\,2}).$$
+            </div>
+
+            <p>
+              The $W$ gradient is parametrically smaller by one
+              factor of $\sigma_0$ — two factors enter, one from
+              $h_{t-1}$ via $b$ and one from $\lambda_{t+1}$ via
+              $c$, while $(b, c)$ each pick up only one. So
+              $(b, c)$ evolve on a timescale $\sim 1/\sigma_0$ and
+              $W$ on $\sim 1/\sigma_0^{\,2}$; the rescaling
+              $s = \sigma_0^{\,2}\,\tau$ puts both on an $O(1)$
+              scale and makes $(b, c)$ the <em>fast</em> variables,
+              $W$ the <em>slow</em> one. (Measured slopes on a
+              log–log gradient-norm vs. $\sigma_0$ plot: $1.00$,
+              $1.00$, $1.99$, across three decades.)
+            </p>
+
+            <p>
+              In the slow–fast picture, $(b, c)$ adiabatically
+              equilibrate on each plateau to whatever residues are
+              optimal for the current eigenvalues of $W$ — exactly
+              the closed-form $r^{\ast}(p) = G^{-1} d$ of
+              <a href="#sec-bestfit">§ 7</a>. By the envelope
+              theorem applied to the $(b, c)$-optimised loss, the
+              effective slow dynamics on $W$ are
+            </p>
+
+            <div class="math-block">
+              $$\dot W \;=\; -\nabla_W\, \mathcal{L}^{\ast}_\rho(W)
+                  \;+\; O(\sigma_0),$$
+            </div>
+
+            <p>
+              where $\mathcal{L}^{\ast}_\rho(W)$ is the rank-$\rho$
+              profile loss from <a href="#sec-bestfit">§ 7</a>. This
+              is why that section's picture works: the fast residues
+              turn the joint $(W, b, c)$ flow into pure gradient
+              descent of the slow variable $W$ on the closed-form
+              Gram landscape, with $(b, c)$ slaved along. The
+              relation is sharp enough to see in data: the pooled
+              log–log relationship between residue tracking error
+              and pole velocity has slope $1.01$ with correlation
+              $0.99$.
             </p>
           </li>
 
