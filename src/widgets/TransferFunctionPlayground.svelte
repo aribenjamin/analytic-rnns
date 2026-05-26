@@ -104,8 +104,7 @@
     // (clamp |p| <= 0.99) and similarly clamp zeros to a sensible range.
     dragged = true;
     const isConj = id.endsWith('-conj');
-    const baseId = isConj ? id.slice(0, -'-conj'.length) : id;
-    const partnerId = isConj ? baseId : `${id}-conj`;
+    const partnerId = isConj ? id.slice(0, -'-conj'.length) : `${id}-conj`;
     const stableR = Math.max(0.01, Math.min(0.99, Math.hypot(z.re, z.im)));
     const theta = Math.atan2(z.im, z.re);
     const newZ: Complex = { re: stableR * Math.cos(theta), im: stableR * Math.sin(theta) };
@@ -114,15 +113,15 @@
     let matched = false;
     for (const pair of polePairs) {
       for (const p of pair) {
-        if (p.id === baseId) { p.z = newZ; matched = true; }
+        if (p.id === id) { p.z = newZ; matched = true; }
         else if (p.id === partnerId) { p.z = conjZ; matched = true; }
       }
     }
     if (!matched) {
-      if (zeroPair.real.id === baseId) {
+      if (zeroPair.real.id === id) {
         zeroPair.real.z = newZ;
         zeroPair.conj.z = conjZ;
-      } else if (zeroPair.conj.id === baseId) {
+      } else if (zeroPair.conj.id === id) {
         zeroPair.conj.z = newZ;
         zeroPair.real.z = conjZ;
       }
