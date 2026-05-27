@@ -52,8 +52,8 @@
         .site-nav { padding: 12px 16px; font-size: 13px; }
       }
     </style>
-    <script type="module" crossorigin src="/analytic-rnns/assets/index-B16chWzT.js"></script>
-    <link rel="stylesheet" crossorigin href="/analytic-rnns/assets/index-C4goY4WM.css">
+    <script type="module" crossorigin src="/analytic-rnns/assets/index-EXV7J2VI.js"></script>
+    <link rel="stylesheet" crossorigin href="/analytic-rnns/assets/index-CYI5Qt-B.css">
   </head>
   <body>
     <nav class="site-nav">
@@ -64,7 +64,7 @@
     <header class="article-header l-page">
       <p class="eyebrow">interactive essay · draft</p>
       <h1 class="article-title">Understanding the learning dynamics of recurrent neural networks</h1>
-      <p class="article-subtitle">Saddle-to-saddle dynamics underlie many ANN learning processes, and often the saddles are quite interpretable as 'modes' learned one by one. 
+      <p class="article-subtitle">Often networks learn 'modes' of the problem sequentially, one by one.
         But what are these modes for recurrent systems? </p>
       <div class="byline">
         <div class="byline-author">
@@ -81,6 +81,21 @@
         </div>
       </div>
     </header>
+
+    <section class="article-teaser l-page" aria-label="In one figure">
+
+      <div class="teaser-text">
+        <p class="teaser-eyebrow">TL;DR: The modes are pole/zero separations of the transfer function</p>
+        <p>
+          Train a linear recurrent network with small initialization on a
+          structured target and its loss drops in a <strong>staircase</strong>.
+          Each plateau lands on the loss of the <strong>best degree-$k$
+          rational approximation</strong> to the underlying true transfer function.
+          The learning dynamics are saddle-to-saddle, and each saddle is a
+          <strong>cancellation between a pole and a zero</strong> of the transfer function.
+        </p>
+      </div>
+    </section>
 
     <aside class="toc" id="toc">
       <p class="toc-label">Contents</p>
@@ -140,7 +155,12 @@
           and how it would escape them one by one. Our 'modes' correspond to 
           the thing that we pick up when we escape a saddle. For linear <em>feedforward</em> networks, 
           the modes are computable via the singular value decomposition of the training data.
-          
+          Proca et al. recently showed that this story extends naturally to
+          recurrent networks — the energy decouples along eigenvalue dimensions
+          and modes are learned sequentially.<sup class="cite"><a href="#ref-proca2025">7</a></sup>
+          Here we explore a geometric take on the same phenomenon: we'll see
+          each mode as a pole–zero pair in the complex plane, where the visual
+          language of transfer functions makes the dynamics tangible.
         </p>
 
       </section>
@@ -738,6 +758,11 @@
           which is the number of poles in the I/O map.
           We do indeed pick up eigenvalues of $W$ one by one, in the sense that
           we have a sequential series of pole-zero pair separations.
+          This sequential acquisition is the same phenomenon Proca et al.
+          describe through per-mode scalar
+          dynamics<sup class="cite"><a href="#ref-proca2025">7</a></sup> —
+          rendered here as geometry in the complex plane, which is why we can
+          visualize the direction and speed of each transition.
         </p>
 
         <p>
@@ -820,6 +845,12 @@
             neural network architectures.</em> International Conference on
             Learning Representations (2026).
             <a href="https://arxiv.org/abs/2512.20607">arXiv:2512.20607</a>.
+          </li>
+          <li id="ref-proca2025">
+            A. M. Proca, C. C. J. Dominé, M. Shanahan &amp; P. A. M. Mediano.
+            <em>Learning dynamics in linear recurrent neural networks.</em>
+            International Conference on Machine Learning (2025).
+            <a href="https://openreview.net/forum?id=KGOcrIWYnx">OpenReview</a>.
           </li>
         </ol>
       </section>
