@@ -64,7 +64,7 @@
     <header class="article-header l-page">
       <p class="eyebrow">interactive essay · draft</p>
       <h1 class="article-title">Understanding the learning dynamics of recurrent neural networks</h1>
-      <p class="article-subtitle">Saddle-to-saddle dynamics underlie many ANN learning processes, and often the saddles are quite interpretable as 'modes' learned one by one. 
+      <p class="article-subtitle">Often networks learn 'modes' of the problem sequentially, one by one.
         But what are these modes for recurrent systems? </p>
       <div class="byline">
         <div class="byline-author">
@@ -81,6 +81,21 @@
         </div>
       </div>
     </header>
+
+    <section class="article-teaser l-page" aria-label="In one figure">
+
+      <div class="teaser-text">
+        <p class="teaser-eyebrow">TL;DR: The modes are pole/zero separations of the transfer function</p>
+        <p>
+          Train a linear recurrent network with small initialization on a
+          structured target and its loss drops in a <strong>staircase</strong>.
+          Each plateau lands on the loss of the <strong>best degree-$k$
+          rational approximation</strong> to the underlying true transfer function.
+          The learning dynamics are saddle-to-saddle, and each saddle is a
+          <strong>cancellation between a pole and a zero</strong> of the transfer function.
+        </p>
+      </div>
+    </section>
 
     <aside class="toc" id="toc">
       <p class="toc-label">Contents</p>
