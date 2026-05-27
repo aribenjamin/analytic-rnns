@@ -184,11 +184,9 @@
           interpretable as <em>cancellations between poles and zeros of the I/O transfer function</em>, 
           and learning new modes correspond to new pole-zero pairs emerging from the same location in the complex plane. 
 
-          The rest of this post is an introduction to what that sentence means, and an exploration of 
+          The rest of this post is an introduction to what that sentence means, and an exploration of
           how we can use it to understand the learning dynamics of recurrent networks.
         </p>
-
-        <div id="widget-recurrent-refresher" class="widget-slot widget-l-middle"></div>
       </section>
 
       <section id="sec-transfer" class="article-section">
@@ -223,19 +221,41 @@
           that produce the same $\{g_s\}$ are the same network in different
           clothes.
         </p>
-
+        <h3>The role of eigenvalues of $W$</h3>
         <p>
           The impulse response has hidden structure. Diagonalising
           $W = V P V^{-1}$ with $P = \mathrm{diag}(p_1, \dots, p_n)$
-          being the set of eigenvalues $\{p_k\}_{k=1}^n$ of $W$ that we
-          got to play around with above, and $V$ the matrix of right eigenvectors. 
+          being the set of eigenvalues $\{p_k\}_{k=1}^n$ of $W$, and $V$ the
+          matrix of right eigenvectors.
           You might recall that eigenvectors
-          are those vectors $v_k$ that are simply scaled by $W$, as in the equation
+          are those vectors $v_k$ that are simply scaled when multiplied by $W$, as in the equation
           $W v_k = p_k v_k$. The eigenvalues $p_k$ are the scaling factors.
           Because of this definition they play very nicely when we apply $W$
-          repeatedly $s$ times: $W^s v_k = p_k^s v_k$. This means that when we write
-           the impulse response in the eigenbasis of $W$, it breaks up into
-           a sum of pure exponentials:
+          repeatedly $s$ times. This repeated multiplication just picks up $s$ 
+          scaling factors, or the eigenvalue to the $s$-th power: $W^s v_k = p_k^s v_k$. 
+        </p>
+
+        <p>
+          Before we collect these modes into a single formula, it helps to
+          have a concrete picture of what one eigenvalue actually does. The
+          widget below isolates a single complex-conjugate pair
+          $\{p_k, \bar p_k\}$ of $W$. On the left, drag the eigenvalue
+          $p_k = r e^{i\theta}$ around the complex plane. On the right is
+          the time evolution it produces in its own 2-D real subspace:
+          starting from a unit kick, each step multiplies by $p_k$ — an
+          isotropic shrink (or stretch) by $|p_k|$ together with a rotation
+          by $\arg p_k$ per step. The result is a damped oscillator when
+          $|p_k| &lt; 1$, a pure orbit on the unit circle, and divergence
+          outside it. Each complex eigenvalue is therefore a single ringing
+          mode of the network — its magnitude sets how long it remembers,
+          its argument sets the frequency at which it rings.
+        </p>
+
+        <div id="widget-recurrent-refresher" class="widget-slot widget-l-middle"></div>
+        <h3>The transfer function also reflects the input/output readout</h3>
+        <p>
+          Returning to the impulse response: writing it in the eigenbasis
+          of $W$, it breaks up into a sum of these pure modes,
         </p>
 
         <div class="math-block">
@@ -251,7 +271,7 @@
         </p>
 
         <p>
-          What we'd really love is a clean description of the output stream
+          With this we can now write a clean description of the output stream
           that doesn't depend on an infinite series of terms going back to the 
           beginning of time. We'd like a single finite expression that <em>is</em>
           the I/O map, with no time index left in it.
@@ -292,7 +312,7 @@
 
         <p>
           Drag a pole or a zero in the playground below; the frequency
-          response and impulse response update live. Poles come in
+          response and impulse response update in real time. Poles come in
           complex-conjugate pairs because $W$ is real, and the widget
           enforces this by mirroring across the real axis.
         </p>

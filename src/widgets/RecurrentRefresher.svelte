@@ -81,15 +81,17 @@
 </script>
 
 <div class="widget widget--recurrent">
-  <div class="widget-banner">Primer: Eigenvalues of W and the internal state h(t)</div>
+  <div class="widget-banner">Primer: what one eigenvalue of W does to its 2-D mode over time</div>
 
   <p class="scope-note">
-    These panels show the network's <strong>internal state</strong> only —
-    the population <em>h</em> evolving under its own recurrence,
-    <span class="eqn"><em>h<sub>t+1</sub></em>&nbsp;=&nbsp;<em>W</em>&thinsp;<em>h<sub>t</sub></em></span>.
-    They do not show the output
-    <span class="eqn eqn--off"><em>y<sub>t</sub></em>&nbsp;=&nbsp;<em>c</em><sup>⊤</sup><em>h<sub>t</sub></em></span>;
-    that&nbsp;readout&nbsp;enters&nbsp;in&nbsp;§&nbsp;3.
+    These panels show the network's <strong>internal state</strong> only,
+    in the absence of input — the autonomous evolution
+    <span class="eqn"><em>h<sub>t+1</sub></em>&nbsp;=&nbsp;<em>W</em>&thinsp;<em>h<sub>t</sub></em></span>,
+    projected onto the 2-D real subspace of a single
+    complex-conjugate eigenpair. Input and readout
+    <span class="eqn eqn--off">(<em>b</em>, <em>c</em>)</span>
+    are set aside for the moment; we put them back in
+    immediately after.
   </p>
 
   <div class="widget-row widget-row--two">
@@ -103,7 +105,7 @@
       </div>
     </div>
     <div class="widget-panel widget-panel--phase">
-      <div class="widget-panel-header">free evolution of the internal state h(t)</div>
+      <div class="widget-panel-header">free evolution in the 2-D mode &mdash; axes are Re a(t), Im a(t), the components of the complex modal amplitude</div>
       <svg bind:this={phaseSvg}></svg>
     </div>
   </div>
@@ -136,8 +138,10 @@
       <code>h<sub>t+1</sub> = W h<sub>t</sub></code>, the two-dimensional
       subspace of a complex-conjugate pair λ, λ̄ acts on h as a rotation by
       <code>arg λ</code> per step combined with an isotropic scaling by
-      <code>|λ|</code>. Inside the unit circle: a damped spiral. On it: a
-      pure orbit. Outside: divergence. The eigenvalues feel like the right
+      <code>|λ|</code>. Each dot on the right is one time step
+      <code>t = 0, 1, 2, …</code>; the trajectory starts at the highlighted
+      point on the Re-axis. Inside the unit circle: a damped spiral. On it:
+      a pure orbit. Outside: divergence. The eigenvalues feel like the right
       "modes" of the network — they set where it rings and how long it
       remembers. The next sections show what's still missing.
     </p>

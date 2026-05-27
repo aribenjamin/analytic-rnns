@@ -85,7 +85,7 @@ export class PhasePortrait {
       .attr('fill', 'var(--text-muted)')
       .attr('font-family', 'var(--font-serif)')
       .attr('font-style', 'italic')
-      .text('h₁');
+      .text('Re a');
     this.root
       .append('text')
       .attr('x', this.xScale(0) + 6)
@@ -94,7 +94,7 @@ export class PhasePortrait {
       .attr('fill', 'var(--text-muted)')
       .attr('font-family', 'var(--font-serif)')
       .attr('font-style', 'italic')
-      .text('h₂');
+      .text('Im a');
 
     this.trail = this.root
       .append('path')
