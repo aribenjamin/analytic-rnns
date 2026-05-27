@@ -155,7 +155,12 @@
           and how it would escape them one by one. Our 'modes' correspond to 
           the thing that we pick up when we escape a saddle. For linear <em>feedforward</em> networks, 
           the modes are computable via the singular value decomposition of the training data.
-          
+          Proca et al. recently showed that this story extends naturally to
+          recurrent networks — the energy decouples along eigenvalue dimensions
+          and modes are learned sequentially.<sup class="cite"><a href="#ref-proca2025">7</a></sup>
+          Here we explore a geometric take on the same phenomenon: we'll see
+          each mode as a pole–zero pair in the complex plane, where the visual
+          language of transfer functions makes the dynamics tangible.
         </p>
 
       </section>
@@ -753,6 +758,11 @@
           which is the number of poles in the I/O map.
           We do indeed pick up eigenvalues of $W$ one by one, in the sense that
           we have a sequential series of pole-zero pair separations.
+          This sequential acquisition is the same phenomenon Proca et al.
+          describe through per-mode scalar
+          dynamics<sup class="cite"><a href="#ref-proca2025">7</a></sup> —
+          rendered here as geometry in the complex plane, which is why we can
+          visualize the direction and speed of each transition.
         </p>
 
         <p>
@@ -835,6 +845,12 @@
             neural network architectures.</em> International Conference on
             Learning Representations (2026).
             <a href="https://arxiv.org/abs/2512.20607">arXiv:2512.20607</a>.
+          </li>
+          <li id="ref-proca2025">
+            A. M. Proca, C. C. J. Dominé, M. Shanahan &amp; P. A. M. Mediano.
+            <em>Learning dynamics in linear recurrent neural networks.</em>
+            International Conference on Machine Learning (2025).
+            <a href="https://openreview.net/forum?id=KGOcrIWYnx">OpenReview</a>.
           </li>
         </ol>
       </section>
